@@ -1,5 +1,19 @@
 {
   "nodes": {
+    "flake-compat": {
+      "locked": {
+        "lastModified": 1733328505,
+        "narHash": "sha256-NeCCThCEP3eCl2l/+27kNNK7QrwZB1IJCrXfrbv5oqU=",
+        "rev": "ff81ac966bb2cae68946d5ed5fc4994f96d0ffec",
+        "revCount": 69,
+        "type": "tarball",
+        "url": "https://api.flakehub.com/f/pinned/edolstra/flake-compat/1.1.0/01948eb7-9cba-704f-bbf3-3fa956735b52/source.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz"
+      }
+    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -15,6 +29,30 @@
       "original": {
         "owner": "numtide",
         "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "hegel-cpp": {
+      "inputs": {
+        "flake-compat": "flake-compat",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "dir": "nix",
+        "lastModified": 1789555828,
+        "narHash": "sha256-grej+8feNyDaaXfn+bEuOH6HH4djViYGeQu36PMG9lM=",
+        "owner": "hegeldev",
+        "repo": "hegel-cpp",
+        "rev": "7e056d38acc6eec614869ffc64edb34c3eeea49b",
+        "type": "github"
+      },
+      "original": {
+        "dir": "nix",
+        "owner": "hegeldev",
+        "ref": "v0.13.0",
+        "repo": "hegel-cpp",
         "type": "github"
       }
     },
@@ -37,6 +75,7 @@
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
+        "hegel-cpp": "hegel-cpp",
         "nixpkgs": "nixpkgs"
       }
     },

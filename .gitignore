@@ -1,7 +1,4 @@
 .docs2epub/
-.pytest_cache/
-__pycache__/
-node_modules/
-*.egg-info/
+/build/
 result
 dist/

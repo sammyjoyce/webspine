@@ -2,9 +2,11 @@
 
 `docs2epub` turns a public documentation site into a reflowable EPUB 3 book. It renders pages in Chromium, caches the extracted content, builds the EPUB without network access, and validates the packaged result with EPUBCheck and multi-width browser checks.
 
+It is a single C++23 binary. It drives headless Chromium over the DevTools protocol on `--remote-debugging-pipe`, parses HTML with libxml2, processes images with libvips, fetches with libcurl, and writes the archive with libzip.
+
 ## Run it
 
-Nix supplies the matching Python, Playwright browser, and EPUBCheck versions.
+Nix supplies the matching Chromium and EPUBCheck versions. Outside Nix, `chromium` and `epubcheck` must be on `PATH`, or set `DOCS2EPUB_CHROMIUM` to a Chromium binary.
 
 ```sh
 nix run . -- https://docs.example.com -o example-docs.epub
@@ -51,8 +53,10 @@ The validator checks the actual EPUB ZIP. It verifies package structure, XHTML p
 
 ```sh
 nix develop
-pytest
-npm ci
-npm test
-docs2epub doctor
+cmake -S . -B build -G Ninja
+cmake --build build
+ctest --test-dir build --output-on-failure
+build/docs2epub doctor
 ```
+
+`nix flake check` runs the same suites in the build sandbox. The tests are unit tests, an end-to-end run against a local fixture site, and [Hegel](https://github.com/hegeldev/hegel-cpp) property tests for URL scoping, canonicalization, and file naming. The flake pins hegel-cpp and its prebuilt engine, so the build needs no network.

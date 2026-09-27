@@ -1,0 +1,11 @@
+# Fixture Docs
+
+This rendered documentation fixture preserves prose through the complete publication pipeline.
+
+- The heading above skips from h1 to h5 and must be renumbered to h2 for a valid outline.
+
+```sh
+lines inside code fences are never counted toward text coverage at all
+```
+
+A second `install` anchor makes the builder deduplicate IDs. Jump up.

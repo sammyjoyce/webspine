@@ -4,91 +4,66 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    hegel-cpp = {
+      url = "github:hegeldev/hegel-cpp/v0.13.0?dir=nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, hegel-cpp }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        python = pkgs.python3;
-        testPython = python.withPackages (ps: with ps; [
-          beautifulsoup4
-          cairosvg
-          lxml
-          pillow
-          playwright
-          pytest
-        ]);
-        app = python.pkgs.buildPythonApplication {
+        lib = pkgs.lib;
+        libhegel = hegel-cpp.packages.${system}.libhegel;
+        hegelEnv = {
+          HEGEL_CPP_SOURCE = "${hegel-cpp.sourceInfo.outPath}";
+          HEGEL_LIBHEGEL_LIBRARY = "${libhegel}/lib/libhegel_c.so";
+        };
+        fontsConf = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };
+        runtimeTools = [ pkgs.chromium pkgs.epubcheck ];
+        buildTools = [ pkgs.cmake pkgs.ninja pkgs.pkg-config pkgs.makeWrapper ];
+        libraries = with pkgs; [
+          cli11
+          curl
+          gtest
+          libxml2
+          libzip
+          nlohmann_json
+          openssl
+          vips
+        ];
+        app = pkgs.stdenv.mkDerivation (hegelEnv // {
           pname = "docs2epub";
           version = "0.1.0";
-          pyproject = true;
-          src = ./.;
-          build-system = [ python.pkgs.setuptools ];
-          dependencies = with python.pkgs; [
-            beautifulsoup4
-            cairosvg
-            lxml
-            pillow
-            playwright
-          ];
-          nativeBuildInputs = [ pkgs.makeWrapper ];
-          nativeCheckInputs = [ python.pkgs.pytestCheckHook pkgs.epubcheck ];
-          PLAYWRIGHT_BROWSERS_PATH = pkgs.playwright-driver.browsers;
-          PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
+          src = lib.fileset.toSource {
+            root = ./.;
+            fileset = lib.fileset.unions [ ./CMakeLists.txt ./src ./tests ];
+          };
+          nativeBuildInputs = buildTools;
+          buildInputs = libraries;
+          nativeCheckInputs = runtimeTools;
+          doCheck = true;
+          FONTCONFIG_FILE = fontsConf;
+          preCheck = ''
+            export HOME=$TMPDIR
+          '';
           postFixup = ''
             wrapProgram $out/bin/docs2epub \
-              --set PLAYWRIGHT_BROWSERS_PATH ${pkgs.playwright-driver.browsers} \
-              --set PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS true \
-              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.epubcheck ]}
+              --set-default FONTCONFIG_FILE ${fontsConf} \
+              --prefix PATH : ${lib.makeBinPath runtimeTools}
           '';
-        };
-        hegelTests = pkgs.buildNpmPackage {
-          pname = "docs2epub-hegel-tests";
-          version = "0.1.0";
-          src = ./.;
-          npmDepsHash = "sha256-Pq+MjawX8u3pnvB8ioyJSkBwawgHTFPQylZbPCpRERk=";
-          dontNpmBuild = true;
-          doCheck = true;
-          nativeCheckInputs = [ testPython ];
-          checkPhase = ''
-            PYTHON=${testPython}/bin/python npm test
-          '';
-          installPhase = ''
-            mkdir -p $out
-            touch $out/passed
-          '';
-        };
+        });
       in {
         packages.default = app;
         apps.default = {
           type = "app";
           program = "${app}/bin/docs2epub";
         };
-        devShells.default = pkgs.mkShell {
-          packages = [
-            (python.withPackages (ps: with ps; [
-              beautifulsoup4
-              cairosvg
-              lxml
-              pillow
-              playwright
-              pytest
-            ]))
-            pkgs.epubcheck
-            pkgs.nodejs_22
-            pkgs.ruff
-          ];
-          PYTHON = "${testPython}/bin/python";
-          PLAYWRIGHT_BROWSERS_PATH = pkgs.playwright-driver.browsers;
-          PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
-          shellHook = ''
-            export PYTHONPATH="$PWD''${PYTHONPATH:+:$PYTHONPATH}"
-          '';
-        };
-        checks = {
-          default = app;
-          hegel = hegelTests;
-        };
+        devShells.default = pkgs.mkShell (hegelEnv // {
+          packages = buildTools ++ libraries ++ runtimeTools ++ [ pkgs.clang-tools ];
+          FONTCONFIG_FILE = fontsConf;
+        });
+        checks.default = app;
       });
 }
