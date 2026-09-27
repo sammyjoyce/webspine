@@ -8,7 +8,7 @@ using namespace docs2epub;
 TEST(Core, XmlIdIsStableAndXmlSafe) {
     EXPECT_EQ(xml_id("  42 / Score & Confidence "), "id-42-Score-Confidence");
     EXPECT_EQ(xml_id("already-safe"), "already-safe");
-    EXPECT_EQ(xml_id(""), "id-");
+    EXPECT_EQ(xml_id(""), "id");
 }
 
 TEST(Core, ScopeIsBoundedToHostAndPath) {
@@ -67,4 +67,55 @@ TEST(Core, CleanFragmentTurnsAlignedPreIntoTable) {
               "<tr><td>Alpha</td><td>0.91</td><td>High</td></tr>"
               "<tr><td>Beta</td><td>0.72</td><td>Medium</td></tr>"
               "</tbody></table>");
+}
+
+namespace {
+std::string clean(const std::string& markup, const std::map<std::string, std::string>& files = {}) {
+    PageRecord page{"https://docs.example/a", "/a", "A", "en", markup, "", {}, {}, {}};
+    return clean_fragment(page, files, {});
+}
+}  // namespace
+
+TEST(Core, XmlIdIsIdempotent) {
+    for (std::string input : {"", "-", "1", "  ", "a b", "id-", "_x", "é"}) {
+        auto once = xml_id(input);
+        EXPECT_EQ(xml_id(once), once) << "input: '" << input << "'";
+    }
+}
+
+TEST(Core, InlineImageStaysInline) {
+    EXPECT_EQ(clean("<p>Icon <img src='i.png' alt='warn'> here.</p><img src='b.png' alt='big'>"),
+              "<p>Icon <img src=\"i.png\" alt=\"warn\"/> here.</p>"
+              "<figure><img src=\"b.png\" alt=\"big\"/></figure>");
+}
+
+TEST(Core, PreservesMeaningfulMarkup) {
+    EXPECT_EQ(clean("<ol start='4' reversed><li value='9'>x</li></ol>"
+                    "<p lang='ja'><ruby>漢字<rp>(</rp><rt>かんじ</rt><rp>)</rp></ruby></p>"
+                    "<p dir='rtl'><bdi>إيان</bdi> <time datetime='2026-09-01'>then</time> a<wbr>b</p>"
+                    "<blockquote cite='https://q.example/'>q</blockquote><img src='i.png' alt='x' width='16' height='16'>"),
+              "<ol start=\"4\" reversed=\"reversed\"><li value=\"9\">x</li></ol>"
+              "<p lang=\"ja\"><ruby>漢字<rp>(</rp><rt>かんじ</rt><rp>)</rp></ruby></p>"
+              "<p dir=\"rtl\"><bdi>إيان</bdi> <time datetime=\"2026-09-01\">then</time> a<wbr/>b</p>"
+              "<blockquote cite=\"https://q.example/\">q</blockquote>"
+              "<figure><img src=\"i.png\" alt=\"x\" width=\"16\" height=\"16\"/></figure>");
+}
+
+TEST(Core, KeepsPresentationMathmlWithAltText) {
+    EXPECT_EQ(clean("<p><math xmlns='http://www.w3.org/1998/Math/MathML'><msup><mi>e</mi><mn>2</mn></msup></math></p>"),
+              "<p><math xmlns=\"http://www.w3.org/1998/Math/MathML\" alttext=\"e2\"><msup><mi>e</mi><mn>2</mn></msup></math></p>");
+}
+
+TEST(Core, EmptyFragmentLinksPointAtNothingInvalid) {
+    auto result = clean("<p id='top'>x <a href='#'>Top</a></p>");
+    EXPECT_EQ(result, "<p id=\"top\">x Top</p>");
+}
+
+TEST(Core, DanglingFragmentsArePruned) {
+    auto content = clean("<h2 id='here'>H</h2><a href='/b#there'>b</a> <a href='/b#gone'>c</a> "
+                         "<a href='#nope'>d</a> <a href='#here'>e</a> <a href='https://x.example/#k'>f</a>",
+                         {{"https://docs.example/b", "b.xhtml"}});
+    EXPECT_EQ(prune_dangling_fragments(content, "a.xhtml", {{"a.xhtml", {"here"}}, {"b.xhtml", {"there"}}}),
+              "<h2 id=\"here\">H</h2><a href=\"b.xhtml#there\">b</a> <a href=\"b.xhtml\">c</a> d "
+              "<a href=\"#here\">e</a> <a href=\"https://x.example/#k\">f</a>");
 }

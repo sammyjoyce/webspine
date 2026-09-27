@@ -60,6 +60,13 @@ TEST(Properties, XmlIdIsNonemptyAndXmlSafe) {
     }, settings);
 }
 
+TEST(Properties, XmlIdIsIdempotent) {
+    hegel::test([](hegel::TestCase& tc) {
+        auto once = xml_id(tc.draw("input", text()));
+        EXPECT_EQ(xml_id(once), once);
+    }, settings);
+}
+
 TEST(Properties, RouteNameIsPortableFilenameComponent) {
     hegel::test([](hegel::TestCase& tc) {
         auto result = route_name(tc.draw("route", text()));

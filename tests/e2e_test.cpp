@@ -91,7 +91,7 @@ class StaticServer {
         if (target.find("..") == std::string::npos && fs::is_regular_file(path)) {
             body = read_file(path);
             auto extension = path.extension();
-            if (extension == ".html") type = "text/html; charset=utf-8";
+            if (extension == ".html") type = "text/html";
             if (extension == ".xml") type = "application/xml";
             if (extension == ".txt") type = "text/plain; charset=utf-8";
             if (extension == ".webp") type = "image/webp";
@@ -228,7 +228,7 @@ class Fixture : public ::testing::Test {
         StaticServer server(site);
         origin = "http://127.0.0.1:" + std::to_string(server.port());
         std::string sitemap = "<?xml version=\"1.0\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">";
-        for (auto path : {"/", "/guide.html", "/reference/api%20notes.html", "/reference/i18n.html"}) {
+        for (auto path : {"/", "/guide.html", "/reference/api%20notes.html", "/reference/i18n.html", "/reference/formats.html"}) {
             sitemap += "<url><loc>" + origin + path + "</loc></url>";
         }
         write_file(site / "sitemap.xml", sitemap + "</urlset>");
@@ -263,7 +263,7 @@ TEST_F(Fixture, CommandPassesEveryStage) {
     std::vector<std::string> stages;
     for (const auto& stage : report["stages"]) stages.push_back(stage["stage"]);
     EXPECT_EQ(stages, (std::vector<std::string>{"scrape", "build", "validate"}));
-    EXPECT_EQ(report["stages"][0]["counts"]["pages"], 4);
+    EXPECT_EQ(report["stages"][0]["counts"]["pages"], 5);
     EXPECT_EQ(json::parse(read_file(workspace / "checks" / "validation.json"))["status"], "passed");
 }
 
@@ -316,9 +316,9 @@ TEST_F(Fixture, SpineCoversNavigationTargets) {
     }
     EXPECT_GE(xpath(opf(), "//opf:itemref[not(@linear) or @linear='yes']").size(), 1u);
     auto toc = xpath(book->read("EPUB/nav.xhtml"), "//h:nav[@epub:type='toc']//h:a/@href");
-    EXPECT_EQ(toc.size(), 4u);
+    EXPECT_EQ(toc.size(), 5u);
     for (const auto& href : toc) EXPECT_TRUE(spine_hrefs.count(href)) << href;
-    EXPECT_EQ(book->names("EPUB/text/").size(), 4u);
+    EXPECT_EQ(book->names("EPUB/text/").size(), 5u);
 }
 
 // EPUB 3.4 section 8.3: exactly one toc nav, and every link has a non-empty label.
@@ -327,7 +327,7 @@ TEST_F(Fixture, NavigationDocumentIsWellFormed) {
     EXPECT_EQ(xpath(nav, "//h:nav[@epub:type='toc']").size(), 1u);
     EXPECT_EQ(xpath(nav, "//h:nav//h:a[normalize-space(.)='']").size(), 0u);
     EXPECT_EQ(xpath(nav, "//h:nav[@epub:type='toc']//h:a"),
-              (std::vector<std::string>{"Fixture Docs", "Guide", "API notes", "国際化 & \"Quotes\" <tags>"}));
+              (std::vector<std::string>{"Fixture Docs", "Guide", "API notes", "国際化 & \"Quotes\" <tags>", "Formats et caractères"}));
 }
 
 // EPUB 3.4 section 4.2.3: file names avoid reserved characters and SPACE, and stay under 255 bytes.
@@ -542,3 +542,31 @@ INSTANTIATE_TEST_SUITE_P(
         Mutation{"UndefinedFragment", "EPUBCHECK_FAILED",
                  [](const fs::path& t, Packing&) { replace_in(t / "EPUB/text/one.xhtml", "#usage", "#nowhere"); }}),
     [](const auto& info) { return std::string(info.param.name); });
+
+// HTML's encoding sniffing falls back to windows-1252 when neither the HTTP
+// header nor a meta tag declares a charset; the scraper must still keep UTF-8 text.
+TEST_F(Fixture, PagesWithoutDeclaredCharsetKeepUtf8) {
+    const auto& formats = book->read(book->chapter("reference-formats.html"));
+    EXPECT_EQ(xpath(formats, "//h:title"), (std::vector<std::string>{"Formats et caractères"})) << formats;
+    EXPECT_NE(formats.find("Déjà vu"), std::string::npos) << formats;
+    EXPECT_EQ(formats.find("Ã"), std::string::npos) << formats;
+}
+
+TEST_F(Fixture, RichInlineMarkupSurvives) {
+    const auto& formats = book->read(book->chapter("reference-formats.html"));
+    EXPECT_EQ(xpath(formats, "//h:p/h:img[@alt='avertissement']").size(), 1u) << "inline image stays in its paragraph";
+    EXPECT_EQ(xpath(formats, "//h:ol/@start"), (std::vector<std::string>{"4"}));
+    EXPECT_EQ(xpath(formats, "//h:li/@value"), (std::vector<std::string>{"9"}));
+    EXPECT_EQ(xpath(formats, "//h:ruby/h:rt"), (std::vector<std::string>{"かんじ"}));
+    EXPECT_EQ(xpath(formats, "//*[local-name()='math']/@alttext"), (std::vector<std::string>{"eiπ+1=0"}));
+    auto chapter = book->chapter("reference-formats.html").substr(5);
+    EXPECT_EQ(xpath(opf(), "//opf:item[@href='" + chapter + "']/@properties"), (std::vector<std::string>{"mathml"}));
+}
+
+TEST_F(Fixture, FragmentLinksTargetExistingIds) {
+    const auto& formats = book->read(book->chapter("reference-formats.html"));
+    EXPECT_EQ(xpath(formats, "//h:a[.='Haut de page']").size(), 0u) << formats;
+    auto stale = xpath(formats, "//h:a[.='ancre périmée']/@href");
+    ASSERT_EQ(stale.size(), 1u) << formats;
+    EXPECT_EQ(stale[0], book->chapter("guide.html").substr(10));
+}

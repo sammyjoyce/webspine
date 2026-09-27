@@ -390,3 +390,10 @@ BuiltBook build(const fs::path& workspace_path, const std::optional<fs::path>& o
 }
 
 }  // namespace docs2epub
+
+namespace docs2epub {
+std::string prune_dangling_fragments(const std::string& content, const std::string&,
+                                     const std::map<std::string, std::set<std::string>>&) {
+    return content;
+}
+}  // namespace docs2epub
