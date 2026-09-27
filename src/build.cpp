@@ -19,15 +19,26 @@ namespace docs2epub {
 namespace {
 
 const std::set<std::string> allowed_tags = {
-    "a",     "abbr",   "aside",  "b",   "blockquote", "br",      "caption", "cite",  "code", "dd",
-    "del",   "details", "dfn",   "div", "dl",         "dt",      "em",      "figcaption", "figure",
-    "h1",    "h2",     "h3",     "h4",  "h5",         "h6",      "hr",      "i",     "img",  "kbd",
-    "li",    "mark",   "ol",     "p",   "pre",        "q",       "s",       "samp",  "section", "small",
-    "span",  "strong", "sub",    "summary", "sup",    "table",   "tbody",   "td",    "tfoot", "th",
-    "thead", "tr",     "u",      "ul",  "var"};
+    "a",      "abbr",    "aside",  "b",      "bdi",   "bdo",        "blockquote", "br",   "caption", "cite",
+    "code",   "dd",      "del",    "details", "dfn",  "div",        "dl",         "dt",   "em",      "figcaption",
+    "figure", "h1",      "h2",     "h3",     "h4",    "h5",         "h6",         "hr",   "i",       "img",
+    "kbd",    "li",      "mark",   "ol",     "p",     "pre",        "q",          "rp",   "rt",      "ruby",
+    "s",      "samp",    "section", "small", "span",  "strong",     "sub",        "summary", "sup",  "table",
+    "tbody",  "td",      "tfoot",  "th",     "thead", "time",       "tr",         "u",    "ul",      "var",
+    "wbr",
+    // Presentation MathML (EPUB 3.4 section 7.1.4.2).
+    "math",   "mi",      "mn",     "mo",     "ms",    "mtext",      "mspace",     "mrow", "mfrac",   "msqrt",
+    "mroot",  "mstyle",  "msub",   "msup",   "msubsup", "munder",   "mover",      "munderover", "mtable", "mtr",
+    "mtd",    "semantics", "annotation"};
 
-const std::set<std::string> allowed_attributes = {"id",      "href",    "src",   "alt", "title",
-                                                  "colspan", "rowspan", "scope", "lang"};
+// abbr is absent although HTML allows it on th: EPUBCheck 5.3.0 rejects it.
+const std::set<std::string> allowed_attributes = {
+    "id",    "href",  "src",      "alt",      "title", "colspan", "rowspan", "scope",   "lang", "dir",
+    "start", "reversed", "value", "datetime", "cite",  "width",   "height",  "headers", "xmlns", "display",
+    "alttext", "mathvariant", "encoding"};
+
+const std::set<std::string> block_containers = {"aside", "blockquote", "body", "dd", "div", "figure",
+                                                "li",    "section",    "td",   "th"};
 
 void convert_tabular_pre(html::Fragment& fragment) {
     static const std::regex column_gap(R"(\s{2,})");
@@ -202,14 +213,29 @@ BuiltBook write_package(const Workspace& workspace, const fs::path& requested_ou
     for (const auto* page : ordered) url_to_file[page->url] = chapter_name(page->route, page->url);
     struct Chapter {
         std::string id, file, title;
+        const PageRecord* page;
+        std::string content;
+        bool mathml = false;
     };
     std::vector<Chapter> chapters;
+    std::map<std::string, std::set<std::string>> ids_by_file;
     for (size_t index = 0; index < ordered.size(); ++index) {
         const auto& page = *ordered[index];
         const auto& file = url_to_file[page.url];
         auto content = clean_fragment(page, url_to_file, asset_names);
-        write_file(text_dir / file, chapter_xhtml(page, content, page.language.empty() ? site.language : page.language));
-        chapters.push_back({"chapter-" + std::to_string(index + 1), file, page.title});
+        html::Fragment parsed(content);
+        auto& ids = ids_by_file[file];
+        for (auto node : html::elements(parsed.root())) {
+            if (auto id = html::attr(node, "id")) ids.insert(*id);
+        }
+        bool mathml = html::first_element(parsed.root(), [](auto node) { return html::name(node) == "math"; });
+        chapters.push_back({"chapter-" + std::to_string(index + 1), file, page.title, &page, content, mathml});
+    }
+    for (const auto& chapter : chapters) {
+        const auto& page = *chapter.page;
+        auto content = prune_dangling_fragments(chapter.content, chapter.file, ids_by_file);
+        write_file(text_dir / chapter.file,
+                   chapter_xhtml(page, content, page.language.empty() ? site.language : page.language));
     }
 
     auto lang = escape_html(site.language);
@@ -259,7 +285,7 @@ BuiltBook write_package(const Workspace& workspace, const fs::path& requested_ou
         "<item id=\"cover-image\" href=\"images/cover.jpg\" media-type=\"image/jpeg\" properties=\"cover-image\"/>";
     for (const auto& chapter : chapters) {
         manifest += "<item id=\"" + chapter.id + "\" href=\"text/" + escape_html(chapter.file) +
-                    "\" media-type=\"application/xhtml+xml\"/>";
+                    "\" media-type=\"application/xhtml+xml\"" + (chapter.mathml ? " properties=\"mathml\"" : "") + "/>";
     }
     std::vector<fs::path> images;
     for (const auto& entry : fs::directory_iterator(images_dir)) images.push_back(entry.path());
@@ -328,6 +354,9 @@ std::string clean_fragment(const PageRecord& page, const std::map<std::string, s
         if (!summaries.empty()) html::rename(summaries.front(), "h3");
     }
     normalize_headings(fragment);
+    for (auto math : html::elements(fragment.root(), [](auto node) { return html::name(node) == "math"; })) {
+        if (!html::attr(math, "alttext")) html::set_attr(math, "alttext", html::text(math));
+    }
 
     std::set<std::string> used_ids;
     for (auto tag : html::elements(fragment.root())) {
@@ -352,7 +381,9 @@ std::string clean_fragment(const PageRecord& page, const std::map<std::string, s
         }
         auto absolute = url_join(page.url, *href);
         auto [target, anchor] = url_defrag(absolute);
-        if (href->starts_with("#")) {
+        if (*href == "#") {
+            fragment.unwrap(link);
+        } else if (href->starts_with("#")) {
             html::set_attr(link, "href", "#" + xml_id(href->substr(1)));
         } else if (auto local = url_to_file.find(canonical_url(target)); local != url_to_file.end()) {
             html::set_attr(link, "href", local->second + (anchor.empty() ? "" : "#" + xml_id(anchor)));
@@ -368,7 +399,8 @@ std::string clean_fragment(const PageRecord& page, const std::map<std::string, s
         }
         auto alt = html::attr(image, "alt");
         html::set_attr(image, "alt", alt && !alt->empty() ? *alt : "Illustration");
-        if (html::name(image->parent) != "figure") fragment.wrap(image, "figure");
+        auto parent = html::name(image->parent);
+        if (parent != "figure" && block_containers.count(parent)) fragment.wrap(image, "figure");
     }
 
     for (auto table : html::elements(fragment.root(), [](auto node) { return html::name(node) == "table"; })) {
@@ -383,17 +415,29 @@ std::string clean_fragment(const PageRecord& page, const std::map<std::string, s
     return fragment.xml();
 }
 
+std::string prune_dangling_fragments(const std::string& content, const std::string& own_file,
+                                     const std::map<std::string, std::set<std::string>>& ids_by_file) {
+    html::Fragment fragment(content);
+    for (auto link : html::elements(fragment.root(), [](auto node) { return html::name(node) == "a"; })) {
+        auto href = html::attr(link, "href").value_or("");
+        auto hash = href.find('#');
+        if (hash == std::string::npos || !parse_url(href).scheme.empty()) continue;
+        auto file = hash == 0 ? own_file : href.substr(0, hash);
+        auto chapter = ids_by_file.find(file);
+        if (chapter == ids_by_file.end() || chapter->second.count(href.substr(hash + 1))) continue;
+        if (hash == 0) {
+            fragment.unwrap(link);
+        } else {
+            html::set_attr(link, "href", file);
+        }
+    }
+    return fragment.xml();
+}
+
 BuiltBook build(const fs::path& workspace_path, const std::optional<fs::path>& output) {
     Workspace workspace(workspace_path);
     SiteRecord site = workspace.read_site();
     return write_package(workspace, output.value_or(workspace.dist / (route_name(site.title) + ".epub")));
 }
 
-}  // namespace docs2epub
-
-namespace docs2epub {
-std::string prune_dangling_fragments(const std::string& content, const std::string&,
-                                     const std::map<std::string, std::set<std::string>>&) {
-    return content;
-}
 }  // namespace docs2epub

@@ -33,6 +33,14 @@ std::string page_key(std::string_view url);
 std::string chapter_name(std::string_view route, std::string_view url);
 std::filesystem::path default_workspace(std::string_view url);
 
+std::string base64_encode(std::string_view data);
+std::string base64_decode(std::string_view data);
+bool valid_utf8(std::string_view data);
+// True when the first 1024 bytes carry a <meta charset> or http-equiv
+// Content-Type charset, the window HTML's prescan examines.
+bool declares_charset(std::string_view html);
+std::string lower(std::string value);
+
 std::string escape_html(std::string_view text);
 std::string strip_whitespace(std::string_view text);
 bool starts_with_any(std::string_view text, std::initializer_list<std::string_view> prefixes);

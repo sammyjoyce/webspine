@@ -28,6 +28,7 @@ class Browser {
     json call(const std::string& method, json params = json::object(), bool in_session = true);
     json read_message(int timeout_ms);
     void wait_for_lifecycle(const std::string& name, const std::string& loader_id, int timeout_ms);
+    void continue_paused_document(const json& params);
 
     pid_t pid_ = -1;
     int to_browser_ = -1;

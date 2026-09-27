@@ -1,5 +1,7 @@
 #include "browser.hpp"
 
+#include "core.hpp"
+
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
@@ -81,6 +83,7 @@ Browser::Browser() {
     call("Page.enable");
     call("Runtime.enable");
     call("Page.setLifecycleEventsEnabled", {{"enabled", true}});
+    call("Fetch.enable", {{"patterns", json::array({{{"resourceType", "Document"}, {"requestStage", "Response"}}})}});
     frame_ = call("Page.getFrameTree").at("frameTree").at("frame").at("id").get<std::string>();
 }
 
@@ -149,7 +152,11 @@ json Browser::call(const std::string& method, json params, bool in_session) {
             }
             return message.value("result", json::object());
         }
-        if (message.contains("method")) pending_events_.push_back(std::move(message));
+        if (message.value("method", "") == "Fetch.requestPaused") {
+            continue_paused_document(message.at("params"));
+        } else if (message.contains("method")) {
+            pending_events_.push_back(std::move(message));
+        }
     }
 }
 
@@ -170,8 +177,43 @@ void Browser::wait_for_lifecycle(const std::string& name, const std::string& loa
     auto deadline = Clock::now() + std::chrono::milliseconds(timeout_ms);
     while (true) {
         json message = read_message(remaining_ms(deadline) + 1);
+        if (message.value("method", "") == "Fetch.requestPaused") {
+            continue_paused_document(message.at("params"));
+            continue;
+        }
         if (matches(message)) return;
     }
+}
+
+// HTML decoding falls back to windows-1252 when neither the Content-Type header
+// nor the page declares an encoding, which garbles UTF-8 sites. The header wins
+// over a meta charset, so UTF-8 is only asserted for undeclared, valid UTF-8 bodies.
+void Browser::continue_paused_document(const json& params) {
+    json request = {{"requestId", params.at("requestId")}};
+    json headers = params.value("responseHeaders", json::array());
+    json* content_type = nullptr;
+    for (auto& header : headers) {
+        if (lower(header.value("name", "")) == "content-type") content_type = &header;
+    }
+    auto type = content_type ? lower(content_type->value("value", "")) : std::string();
+    if (!params.contains("responseStatusCode") || !type.starts_with("text/html") ||
+        type.find("charset=") != std::string::npos) {
+        call("Fetch.continueResponse", request);
+        return;
+    }
+    json body = call("Fetch.getResponseBody", request);
+    std::string bytes = body.value("base64Encoded", false) ? base64_decode(body.at("body").get<std::string>())
+                                                           : body.at("body").get<std::string>();
+    if (declares_charset(bytes) || !valid_utf8(bytes)) {
+        call("Fetch.continueResponse", request);
+        return;
+    }
+    (*content_type)["value"] = content_type->value("value", "") + "; charset=utf-8";
+    json reply = request;
+    reply["responseCode"] = params.at("responseStatusCode");
+    reply["responseHeaders"] = headers;
+    reply["body"] = base64_encode(bytes);
+    call("Fetch.fulfillRequest", reply);
 }
 
 void Browser::set_viewport(int width, int height) {

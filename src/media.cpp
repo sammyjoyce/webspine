@@ -33,12 +33,6 @@ size_t append_body(char* data, size_t size, size_t count, void* target) {
     return size * count;
 }
 
-std::string lower(std::string value) {
-    std::transform(value.begin(), value.end(), value.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return value;
-}
-
 constexpr int unbounded = 10'000'000;
 
 }  // namespace

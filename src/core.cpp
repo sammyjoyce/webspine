@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cctype>
 #include <stdexcept>
 #include <vector>
@@ -11,7 +12,6 @@
 namespace docs2epub {
 namespace {
 
-bool is_space(char c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 
 std::string strip_chars(std::string_view text, std::string_view chars) {
     auto first = text.find_first_not_of(chars);
@@ -247,9 +247,8 @@ std::string xml_id(std::string_view value) {
         return std::isalnum(c) || c == '_' || c == '.' || c == '-';
     });
     out = strip_chars(out, "-");
-    if (out.empty() || !(std::isalpha(static_cast<unsigned char>(out[0])) || out[0] == '_')) {
-        out = "id-" + out;
-    }
+    if (out.empty()) return "id";
+    if (!(std::isalpha(static_cast<unsigned char>(out[0])) || out[0] == '_')) out = "id-" + out;
     return out;
 }
 
@@ -265,6 +264,80 @@ std::filesystem::path default_workspace(std::string_view url) {
     std::replace(path.begin(), path.end(), '/', '-');
     if (path.empty()) path = "root";
     return std::filesystem::path(".docs2epub") / (parsed.netloc + "-" + path);
+}
+
+std::string lower(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return value;
+}
+
+std::string base64_encode(std::string_view data) {
+    static constexpr char table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string out;
+    for (size_t i = 0; i < data.size(); i += 3) {
+        size_t left = std::min<size_t>(3, data.size() - i);
+        unsigned n = static_cast<unsigned char>(data[i]) << 16;
+        if (left > 1) n |= static_cast<unsigned char>(data[i + 1]) << 8;
+        if (left > 2) n |= static_cast<unsigned char>(data[i + 2]);
+        out += table[n >> 18];
+        out += table[(n >> 12) & 63];
+        out += left > 1 ? table[(n >> 6) & 63] : '=';
+        out += left > 2 ? table[n & 63] : '=';
+    }
+    return out;
+}
+
+std::string base64_decode(std::string_view data) {
+    auto value = [](char c) -> int {
+        if (c >= 'A' && c <= 'Z') return c - 'A';
+        if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+        if (c >= '0' && c <= '9') return c - '0' + 52;
+        if (c == '+') return 62;
+        if (c == '/') return 63;
+        return -1;
+    };
+    std::string out;
+    unsigned buffer = 0;
+    int bits = 0;
+    for (char c : data) {
+        int v = value(c);
+        if (v < 0) continue;
+        buffer = (buffer << 6) | static_cast<unsigned>(v);
+        bits += 6;
+        if (bits >= 8) {
+            bits -= 8;
+            out += static_cast<char>((buffer >> bits) & 0xff);
+        }
+    }
+    return out;
+}
+
+bool valid_utf8(std::string_view data) {
+    for (size_t i = 0; i < data.size();) {
+        auto c = static_cast<unsigned char>(data[i]);
+        size_t length = c < 0x80 ? 1 : (c >> 5) == 0x6 ? 2 : (c >> 4) == 0xe ? 3 : (c >> 3) == 0x1e ? 4 : 0;
+        if (length == 0 || i + length > data.size()) return false;
+        uint32_t code = length == 1 ? c : c & (0x7f >> length);
+        for (size_t k = 1; k < length; ++k) {
+            auto next = static_cast<unsigned char>(data[i + k]);
+            if ((next >> 6) != 0x2) return false;
+            code = (code << 6) | (next & 0x3f);
+        }
+        static constexpr uint32_t minimum[] = {0, 0, 0x80, 0x800, 0x10000};
+        if (code < minimum[length] || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) return false;
+        i += length;
+    }
+    return true;
+}
+
+bool declares_charset(std::string_view html) {
+    auto head = lower(std::string(html.substr(0, 1024)));
+    for (size_t at = head.find("<meta"); at != std::string::npos; at = head.find("<meta", at + 5)) {
+        auto tag = head.substr(at, head.find('>', at) - at);
+        if (tag.find("charset") != std::string::npos) return true;
+    }
+    return false;
 }
 
 std::string escape_html(std::string_view text) {

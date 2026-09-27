@@ -228,7 +228,7 @@ class Fixture : public ::testing::Test {
         StaticServer server(site);
         origin = "http://127.0.0.1:" + std::to_string(server.port());
         std::string sitemap = "<?xml version=\"1.0\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">";
-        for (auto path : {"/", "/guide.html", "/reference/api%20notes.html", "/reference/i18n.html", "/reference/formats.html"}) {
+        for (auto path : {"/", "/guide.html", "/reference/api%20notes.html", "/reference/i18n.html", "/reference/formats.html", "/reference/latin1.html"}) {
             sitemap += "<url><loc>" + origin + path + "</loc></url>";
         }
         write_file(site / "sitemap.xml", sitemap + "</urlset>");
@@ -263,7 +263,7 @@ TEST_F(Fixture, CommandPassesEveryStage) {
     std::vector<std::string> stages;
     for (const auto& stage : report["stages"]) stages.push_back(stage["stage"]);
     EXPECT_EQ(stages, (std::vector<std::string>{"scrape", "build", "validate"}));
-    EXPECT_EQ(report["stages"][0]["counts"]["pages"], 5);
+    EXPECT_EQ(report["stages"][0]["counts"]["pages"], 6);
     EXPECT_EQ(json::parse(read_file(workspace / "checks" / "validation.json"))["status"], "passed");
 }
 
@@ -316,9 +316,9 @@ TEST_F(Fixture, SpineCoversNavigationTargets) {
     }
     EXPECT_GE(xpath(opf(), "//opf:itemref[not(@linear) or @linear='yes']").size(), 1u);
     auto toc = xpath(book->read("EPUB/nav.xhtml"), "//h:nav[@epub:type='toc']//h:a/@href");
-    EXPECT_EQ(toc.size(), 5u);
+    EXPECT_EQ(toc.size(), 6u);
     for (const auto& href : toc) EXPECT_TRUE(spine_hrefs.count(href)) << href;
-    EXPECT_EQ(book->names("EPUB/text/").size(), 5u);
+    EXPECT_EQ(book->names("EPUB/text/").size(), 6u);
 }
 
 // EPUB 3.4 section 8.3: exactly one toc nav, and every link has a non-empty label.
@@ -327,7 +327,7 @@ TEST_F(Fixture, NavigationDocumentIsWellFormed) {
     EXPECT_EQ(xpath(nav, "//h:nav[@epub:type='toc']").size(), 1u);
     EXPECT_EQ(xpath(nav, "//h:nav//h:a[normalize-space(.)='']").size(), 0u);
     EXPECT_EQ(xpath(nav, "//h:nav[@epub:type='toc']//h:a"),
-              (std::vector<std::string>{"Fixture Docs", "Guide", "API notes", "国際化 & \"Quotes\" <tags>", "Formats et caractères"}));
+              (std::vector<std::string>{"Fixture Docs", "Guide", "API notes", "国際化 & \"Quotes\" <tags>", "Formats et caractères", "Page Latin-1"}));
 }
 
 // EPUB 3.4 section 4.2.3: file names avoid reserved characters and SPACE, and stay under 255 bytes.
@@ -569,4 +569,9 @@ TEST_F(Fixture, FragmentLinksTargetExistingIds) {
     auto stale = xpath(formats, "//h:a[.='ancre périmée']/@href");
     ASSERT_EQ(stale.size(), 1u) << formats;
     EXPECT_EQ(stale[0], book->chapter("guide.html").substr(10));
+}
+
+TEST_F(Fixture, DeclaredLegacyCharsetIsHonoured) {
+    const auto& latin = book->read(book->chapter("reference-latin1.html"));
+    EXPECT_NE(latin.find("café, déjà, naïve"), std::string::npos) << latin;
 }

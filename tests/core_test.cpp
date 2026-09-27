@@ -94,7 +94,7 @@ TEST(Core, PreservesMeaningfulMarkup) {
                     "<p lang='ja'><ruby>漢字<rp>(</rp><rt>かんじ</rt><rp>)</rp></ruby></p>"
                     "<p dir='rtl'><bdi>إيان</bdi> <time datetime='2026-09-01'>then</time> a<wbr>b</p>"
                     "<blockquote cite='https://q.example/'>q</blockquote><img src='i.png' alt='x' width='16' height='16'>"),
-              "<ol start=\"4\" reversed=\"reversed\"><li value=\"9\">x</li></ol>"
+              "<ol start=\"4\" reversed=\"\"><li value=\"9\">x</li></ol>"
               "<p lang=\"ja\"><ruby>漢字<rp>(</rp><rt>かんじ</rt><rp>)</rp></ruby></p>"
               "<p dir=\"rtl\"><bdi>إيان</bdi> <time datetime=\"2026-09-01\">then</time> a<wbr/>b</p>"
               "<blockquote cite=\"https://q.example/\">q</blockquote>"
@@ -118,4 +118,28 @@ TEST(Core, DanglingFragmentsArePruned) {
     EXPECT_EQ(prune_dangling_fragments(content, "a.xhtml", {{"a.xhtml", {"here"}}, {"b.xhtml", {"there"}}}),
               "<h2 id=\"here\">H</h2><a href=\"b.xhtml#there\">b</a> <a href=\"b.xhtml\">c</a> d "
               "<a href=\"#here\">e</a> <a href=\"https://x.example/#k\">f</a>");
+}
+
+TEST(Core, Base64MatchesRfc4648Vectors) {
+    for (auto [plain, encoded] : std::vector<std::pair<std::string, std::string>>{
+             {"", ""}, {"f", "Zg=="}, {"fo", "Zm8="}, {"foo", "Zm9v"}, {"foob", "Zm9vYg=="}, {"fooba", "Zm9vYmE="},
+             {"foobar", "Zm9vYmFy"}, {std::string("\xff\x00\xfe", 3), "/wD+"}}) {
+        EXPECT_EQ(base64_encode(plain), encoded);
+        EXPECT_EQ(base64_decode(encoded), plain);
+    }
+}
+
+TEST(Core, Utf8ValidationRejectsLatin1AndOverlongForms) {
+    EXPECT_TRUE(valid_utf8("Caf\xc3\xa9 \xf0\x9f\x93\x98"));
+    EXPECT_FALSE(valid_utf8("Caf\xe9"));
+    EXPECT_FALSE(valid_utf8("\xc0\xaf"));
+    EXPECT_FALSE(valid_utf8("\xed\xa0\x80"));
+    EXPECT_FALSE(valid_utf8("\xe2\x82"));
+}
+
+TEST(Core, CharsetDeclarationIsFoundInPrescanWindow) {
+    EXPECT_TRUE(declares_charset("<html><head><META CHARSET=\"iso-8859-1\">"));
+    EXPECT_TRUE(declares_charset("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">"));
+    EXPECT_FALSE(declares_charset("<html><head><meta name=\"viewport\" content=\"width=device-width\"><title>x</title>"));
+    EXPECT_FALSE(declares_charset(std::string(1100, ' ') + "<meta charset=\"utf-8\">"));
 }

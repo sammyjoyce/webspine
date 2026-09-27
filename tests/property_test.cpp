@@ -143,7 +143,9 @@ TEST(Properties, UrlJoinOfAbsolutePathKeepsSchemeAndHost) {
     hegel::test([](hegel::TestCase& tc) {
         auto domain = tc.draw("host", host());
         auto base = "https://" + domain + "/" + tc.draw("base", path_segment()) + "/page";
-        auto target = "/" + tc.draw("target", path_segment());
+        auto segment = tc.draw("target", path_segment());
+        tc.assume(segment != "." && segment != "..");  // RFC 3986 section 5.2.4 removes dot segments.
+        auto target = "/" + segment;
         EXPECT_EQ(url_join(base, target), "https://" + domain + target);
     }, settings);
 }
