@@ -1,0 +1,13 @@
+{
+  "name": "docs2epub-property-tests",
+  "private": true,
+  "scripts": {
+    "test": "vitest run tests/hegel"
+  },
+  "devDependencies": {
+    "@hegeldev/hegel": "0.4.7",
+    "@types/node": "22.15.3",
+    "typescript": "5.8.3",
+    "vitest": "4.1.11"
+  }
+}

@@ -52,5 +52,7 @@ The validator checks the actual EPUB ZIP. It verifies package structure, XHTML p
 ```sh
 nix develop
 pytest
+npm ci
+npm test
 docs2epub doctor
 ```

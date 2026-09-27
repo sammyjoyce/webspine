@@ -19,7 +19,8 @@ def default_workspace(url: str) -> Path:
 def route_name(route: str) -> str:
     value = route.strip("/") or "index"
     value = re.sub(r"[^A-Za-z0-9._-]+", "-", value)
-    return value.strip("-") or "index"
+    value = value.strip("-") or "index"
+    return "index" if value in (".", "..") else value
 
 
 def page_key(url: str) -> str:

@@ -1,5 +1,6 @@
 from docs2epub.build import xml_id
 from docs2epub.scrape import canonical_url, in_scope
+from docs2epub.workspace import route_name
 
 
 def test_xml_id_is_stable_and_xml_safe():
@@ -16,3 +17,8 @@ def test_scope_is_bounded_to_host_and_path():
         canonical_url("https://example.com/docs/guide/#part")
         == "https://example.com/docs/guide"
     )
+
+
+def test_route_name_avoids_special_path_components():
+    assert route_name(".") == "index"
+    assert route_name("..") == "index"

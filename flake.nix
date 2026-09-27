@@ -11,6 +11,14 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         python = pkgs.python3;
+        testPython = python.withPackages (ps: with ps; [
+          beautifulsoup4
+          cairosvg
+          lxml
+          pillow
+          playwright
+          pytest
+        ]);
         app = python.pkgs.buildPythonApplication {
           pname = "docs2epub";
           version = "0.1.0";
@@ -35,6 +43,22 @@
               --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.epubcheck ]}
           '';
         };
+        hegelTests = pkgs.buildNpmPackage {
+          pname = "docs2epub-hegel-tests";
+          version = "0.1.0";
+          src = ./.;
+          npmDepsHash = "sha256-Pq+MjawX8u3pnvB8ioyJSkBwawgHTFPQylZbPCpRERk=";
+          dontNpmBuild = true;
+          doCheck = true;
+          nativeCheckInputs = [ testPython ];
+          checkPhase = ''
+            PYTHON=${testPython}/bin/python npm test
+          '';
+          installPhase = ''
+            mkdir -p $out
+            touch $out/passed
+          '';
+        };
       in {
         packages.default = app;
         apps.default = {
@@ -52,14 +76,19 @@
               pytest
             ]))
             pkgs.epubcheck
+            pkgs.nodejs_22
             pkgs.ruff
           ];
+          PYTHON = "${testPython}/bin/python";
           PLAYWRIGHT_BROWSERS_PATH = pkgs.playwright-driver.browsers;
           PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
           shellHook = ''
             export PYTHONPATH="$PWD''${PYTHONPATH:+:$PYTHONPATH}"
           '';
         };
-        checks.default = app;
+        checks = {
+          default = app;
+          hegel = hegelTests;
+        };
       });
 }
