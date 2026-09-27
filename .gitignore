@@ -1,0 +1,6 @@
+.docs2epub/
+.pytest_cache/
+__pycache__/
+*.egg-info/
+result
+dist/
