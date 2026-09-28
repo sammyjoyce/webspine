@@ -90,6 +90,83 @@ void convert_tabular_pre(html::Fragment& fragment) {
     }
 }
 
+// The scraper labels every tab panel with its tab name, so a tab strip whose panels all survived is redundant.
+// Runs before attribute filtering, which removes role and aria-controls.
+void remove_tab_strips(html::Fragment& fragment) {
+    auto has_role = [](std::string_view role) {
+        return [role](html::Node node) { return html::attr(node, "role") == role; };
+    };
+    for (auto list : html::elements(fragment.root(), has_role("tablist"))) {
+        auto tabs = html::elements(list, has_role("tab"));
+        bool panels_present = !tabs.empty() && std::all_of(tabs.begin(), tabs.end(), [&](auto tab) {
+            auto id = html::attr(tab, "aria-controls");
+            return id && html::first_element(fragment.root(), [&](auto node) { return html::attr(node, "id") == id; });
+        });
+        if (panels_present) fragment.detach(list);
+    }
+}
+
+// True when the node holds nothing a reader would see or hear, and no descendant is a link target.
+// Whitespace counts as content: syntax highlighters put the spaces between code tokens in their own spans.
+bool is_empty(html::Node node) {
+    static const std::string zero_width_space = "\u200B";
+    auto text = html::text(node);
+    for (auto at = text.find(zero_width_space); at != std::string::npos; at = text.find(zero_width_space)) {
+        text.erase(at, zero_width_space.size());
+    }
+    return text.empty() && !html::first_element(node, [](auto child) {
+               auto tag = html::name(child);
+               return tag == "img" || tag == "math" || tag == "br" || tag == "hr" || html::attr(child, "id");
+           });
+}
+
+// Permalink icons are links with no text, usually wrapping an empty div inside a heading.
+// Elements with an id stay: they are fragment targets.
+void remove_empty_links_and_wrappers(html::Fragment& fragment) {
+    auto elements = html::elements(fragment.root());
+    for (auto node = elements.rbegin(); node != elements.rend(); ++node) {
+        auto tag = html::name(*node);
+        if ((tag == "a" || tag == "div" || tag == "span") && !html::attr(*node, "id") && is_empty(*node)) {
+            fragment.detach(*node);
+        }
+    }
+}
+
+// XHTML forbids flow content inside phrasing-only elements, which component libraries emit routinely.
+// a, del, and ins are transparent, so the check looks through them.
+void repair_content_model(html::Fragment& fragment) {
+    static const std::set<std::string> phrasing_only = {
+        "abbr", "b",  "bdi", "bdo",  "cite", "code", "dfn",   "em",   "i",      "kbd", "mark",
+        "q",    "rp", "rt",  "ruby", "s",    "samp", "small", "span", "strong", "sub", "sup",
+        "time", "u",  "var", "p",    "pre",  "h1",   "h2",    "h3",   "h4",     "h5",  "h6"};
+    static const std::set<std::string> flow_only = {
+        "aside",   "blockquote", "details", "div", "dl", "figure", "hr", "ol", "p", "pre",
+        "section", "table",      "ul",      "h1",  "h2", "h3",     "h4", "h5", "h6"};
+    auto phrasing_ancestor = [](html::Node node) -> html::Node {
+        for (auto parent = node->parent; parent && parent->type == XML_ELEMENT_NODE; parent = parent->parent) {
+            if (phrasing_only.count(html::name(parent))) return parent;
+        }
+        return nullptr;
+    };
+    // Document order visits a renamed wrapper before its descendants, so one pass sees every new span.
+    for (auto node : html::elements(fragment.root(), [](auto node) { return flow_only.count(html::name(node)); })) {
+        for (auto container = phrasing_ancestor(node); container; container = phrasing_ancestor(node)) {
+            auto tag = html::name(node);
+            if (tag == "div" || tag == "p") {
+                html::rename(node, "span");
+                break;
+            }
+            auto outer = html::name(container);
+            // Renaming keeps the container's id, which links may target; unwrapping would drop it.
+            if (html::is_heading(container) || outer == "p" || outer == "pre" || html::attr(container, "id")) {
+                html::rename(container, "div");
+            } else {
+                fragment.unwrap(container);
+            }
+        }
+    }
+}
+
 void normalize_headings(html::Fragment& fragment) {
     int previous = 1;
     for (auto heading : html::elements(fragment.root(), html::is_heading)) {
@@ -338,6 +415,7 @@ std::string clean_fragment(const PageRecord& page, const std::map<std::string, s
         first && html::joined_text(first, " ") == page.title) {
         fragment.detach(first);
     }
+    remove_tab_strips(fragment);
     convert_tabular_pre(fragment);
     html::remove_comments(fragment.root());
     for (auto tag : html::elements(fragment.root())) {
@@ -354,6 +432,8 @@ std::string clean_fragment(const PageRecord& page, const std::map<std::string, s
         auto summaries = html::child_elements(details, "summary");
         if (!summaries.empty()) html::rename(summaries.front(), "h3");
     }
+    remove_empty_links_and_wrappers(fragment);
+    repair_content_model(fragment);
     normalize_headings(fragment);
     for (auto math : html::elements(fragment.root(), [](auto node) { return html::name(node) == "math"; })) {
         if (!html::attr(math, "alttext")) html::set_attr(math, "alttext", html::text(math));
