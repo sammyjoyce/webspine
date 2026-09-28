@@ -16,11 +16,12 @@ h1, h2, h3, h4, h5, h6 {
   font-family: sans-serif;
   line-height: 1.2;
   margin: 1.5em 0 0.55em;
+  overflow-wrap: anywhere;
 }
 h1 { font-size: 1.9em; }
 h2 { font-size: 1.45em; }
 h3 { font-size: 1.2em; }
-a { color: inherit; text-decoration-thickness: 0.08em; }
+a { color: inherit; overflow-wrap: anywhere; text-decoration-thickness: 0.08em; }
 .source { font-family: sans-serif; font-size: 0.72em; opacity: 0.72; overflow-wrap: anywhere; }
 pre, code, kbd, samp { font-family: monospace; }
 code { overflow-wrap: anywhere; }
