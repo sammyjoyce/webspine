@@ -11,6 +11,8 @@ indent_size = 4
 [*.{nix,yml,yaml,json,md}]
 indent_size = 2
 
+# Byte-exact inputs: latin1.html is deliberately ISO-8859-1.
 [tests/fixtures/**]
+charset = unset
 insert_final_newline = unset
 trim_trailing_whitespace = unset
