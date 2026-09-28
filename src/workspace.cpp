@@ -30,10 +30,11 @@ Workspace::Workspace(const fs::path& path)
       assets(root / "assets"),
       build(root / "build"),
       dist(root / "dist"),
-      checks(root / "checks") {}
+      checks(root / "checks"),
+      brand(root / "brand") {}
 
 void Workspace::create() const {
-    for (const auto& path : {pages, assets, build, dist, checks}) fs::create_directories(path);
+    for (const auto& path : {pages, assets, build, dist, checks, brand}) fs::create_directories(path);
 }
 
 void Workspace::write_json(const fs::path& path, const json& value) const {

@@ -10,6 +10,8 @@
 #include <libxml/tree.h>
 
 #include <algorithm>
+#include <chrono>
+#include <format>
 #include <map>
 #include <set>
 #include <stdexcept>
@@ -75,6 +77,54 @@ constexpr std::string_view extract_js = R"JS(
     nav: links,
   };
 }
+)JS";
+
+// Runs on the entry page only. Reads publication metadata from <head> and the site logo from the header.
+constexpr std::string_view metadata_js = R"JS(
+(() => {
+  const meta = (key) => document.querySelector(`meta[name="${key}" i], meta[property="${key}" i]`)?.content?.trim() || '';
+  const visible = (node) => {
+    const box = node.getBoundingClientRect();
+    return box.width > 0 && box.height > 0 && getComputedStyle(node).visibility !== 'hidden';
+  };
+  const home = new URL('/', location.href).href;
+  const candidates = [...document.querySelectorAll('header img, nav img, a img, header svg, a svg')]
+    .filter((node) => visible(node) && !node.closest('main, article, [role="main"]'));
+  const scored = candidates.map((node) => {
+    const link = node.closest('a');
+    const label = `${node.getAttribute('class') || ''} ${node.getAttribute('alt') || ''} ${node.id || ''} ${node.getAttribute('src') || ''}`;
+    let score = /logo|brand/i.test(label) ? 3 : 0;
+    if (link && (link.href === home || link.getAttribute('href') === '/')) score += 2;
+    if (node.closest('header')) score += 1;
+    return {node, score, top: node.getBoundingClientRect().top};
+  }).filter((entry) => entry.score >= 2).sort((a, b) => b.score - a.score || a.top - b.top);
+  const logo = scored[0]?.node;
+  let logoSource = null;
+  if (logo?.tagName.toLowerCase() === 'img') {
+    logoSource = {url: logo.currentSrc || logo.src};
+  } else if (logo) {
+    const svg = logo.cloneNode(true);
+    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svg.style.color = getComputedStyle(logo).color;
+    logoSource = {svg: svg.outerHTML.replaceAll('currentColor', getComputedStyle(logo).color)};
+  }
+  const icons = [...document.querySelectorAll('link[rel~="apple-touch-icon"], link[rel~="icon"]')]
+    .filter((link) => !link.media || matchMedia(link.media).matches)
+    .map((link) => ({url: link.href, size: parseInt((link.sizes?.value || link.getAttribute('sizes') || '0').split('x')[0]) || 0,
+                     touch: link.rel.includes('apple-touch-icon')}))
+    .sort((a, b) => b.touch - a.touch || b.size - a.size);
+  const title = document.title.trim();
+  const separator = title.match(/\s[|\u2013\u2014-]\s/);
+  return {
+    name: meta('og:site_name') || meta('application-name') ||
+          (separator ? title.slice(title.lastIndexOf(separator[0]) + separator[0].length).trim() : title),
+    description: meta('description') || meta('og:description'),
+    author: meta('author'),
+    theme_colors: [...document.querySelectorAll('meta[name="theme-color" i]')].map((node) => node.content.trim()).filter(Boolean),
+    logo: logoSource,
+    icon: icons[0]?.url || null,
+  };
+})()
 )JS";
 
 template <typename T>
@@ -215,6 +265,48 @@ std::string string_field(const json& value, const char* key) {
     return it != value.end() && it->is_string() ? it->get<std::string>() : std::string();
 }
 
+// Saves a brand image under the workspace brand directory. Brand images decorate the cover, so a
+// failed download leaves the field empty instead of failing the scrape.
+std::optional<std::string> save_brand_image(const json& source, const std::string& stem, const Workspace& workspace) {
+    try {
+        if (source.is_object() && source.contains("svg")) {
+            auto name = stem + ".png";
+            rasterize_svg(source["svg"].get<std::string>(), workspace.brand / name);
+            return name;
+        }
+        std::string url = source.is_object()   ? string_field(source, "url")
+                          : source.is_string() ? source.get<std::string>()
+                                               : "";
+        if (url.empty() || url.starts_with("data:")) return std::nullopt;
+        auto response = http_get(url, 20);
+        auto extension = extension_for_media_type(response.content_type);
+        if (!response.ok() || extension.empty() || extension == ".ico") return std::nullopt;
+        auto name = stem + extension;
+        write_file(workspace.brand / name, response.body);
+        return name;
+    } catch (const std::exception&) {
+        return std::nullopt;
+    }
+}
+
+SiteMetadata read_metadata(Browser& browser, const Workspace& workspace) {
+    json found = browser.evaluate(metadata_js);
+    SiteMetadata metadata;
+    metadata.name = strip_whitespace(string_field(found, "name"));
+    metadata.description = strip_whitespace(string_field(found, "description"));
+    metadata.author = strip_whitespace(string_field(found, "author"));
+    for (const auto& color : found.value("theme_colors", json::array())) {
+        if (color.is_string()) metadata.theme_colors.push_back(color.get<std::string>());
+    }
+    metadata.captured_on =
+        std::format("{:%F}", std::chrono::floor<std::chrono::days>(std::chrono::system_clock::now()));
+    fs::remove_all(workspace.brand);
+    fs::create_directories(workspace.brand);
+    metadata.logo = save_brand_image(found.value("logo", json()), "logo", workspace);
+    metadata.icon = save_brand_image(found.value("icon", json()), "icon", workspace);
+    return metadata;
+}
+
 }  // namespace
 
 SiteRecord scrape(const ScrapeOptions& options) {
@@ -237,6 +329,7 @@ SiteRecord scrape(const ScrapeOptions& options) {
     if (first.contains("error")) {
         throw std::runtime_error("No documentation content root was found. Pass --content-selector for this site.");
     }
+    SiteMetadata metadata = read_metadata(browser, workspace);
 
     std::vector<std::pair<std::string, std::string>> nav_links;
     std::set<std::string> nav_urls;
@@ -311,13 +404,10 @@ SiteRecord scrape(const ScrapeOptions& options) {
     std::vector<std::string> page_urls;
     for (const auto& [url, title] : titles) page_urls.push_back(url);
     SiteRecord site{base_url,
-                    options.title.value_or(string_field(first, "title")),
-                    options.language.value_or(string_field(first, "language")),
-                    "generic",
-                    ir_version,
-                    sitemap,
-                    nav,
-                    page_urls};
+                    // The entry page's h1 names that page ("Introduction"), not the book, so the site name wins.
+                    options.title.value_or(metadata.name.empty() ? string_field(first, "title") : metadata.name),
+                    options.language.value_or(string_field(first, "language")), "generic", ir_version, sitemap, nav,
+                    page_urls, metadata};
     workspace.write_site(site);
     return site;
 }
