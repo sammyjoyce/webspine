@@ -83,6 +83,7 @@ stdenv.mkDerivation {
   meta = {
     description = "Turn rendered documentation sites into validated EPUB 3 books";
     homepage = "https://github.com/sammyjoyce/webspine";
+    license = lib.licenses.mit;
     mainProgram = "webspine";
     platforms = lib.platforms.linux;
   };

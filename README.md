@@ -103,3 +103,9 @@ build/webspine doctor
 ```
 
 `nix flake check` runs the same suites in the build sandbox. The tests are unit tests, an end-to-end run against a local fixture site, and [Hegel](https://github.com/hegeldev/hegel-cpp) property tests for URL scoping, canonicalization, and file naming. The flake pins hegel-cpp and its prebuilt engine, so the build needs no network.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) to send a change and [SECURITY.md](SECURITY.md) to report a vulnerability.
+
+## License
+
+[MIT](LICENSE)
