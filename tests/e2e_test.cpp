@@ -240,7 +240,7 @@ protected:
         std::string sitemap = "<?xml version=\"1.0\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">";
         sitemap += "<url><loc>" + origin + "/moved</loc></url>";
         for (auto path : {"/", "/guide.html", "/reference/api%20notes.html", "/reference/i18n.html",
-                          "/reference/formats.html", "/reference/latin1.html"}) {
+                          "/reference/formats.html", "/reference/latin1.html", "/reference/components.html"}) {
             sitemap += "<url><loc>" + origin + path + "</loc></url>";
         }
         write_file(site / "sitemap.xml", sitemap + "</urlset>");
@@ -275,7 +275,7 @@ TEST_F(Fixture, CommandPassesEveryStage) {
     std::vector<std::string> stages;
     for (const auto& stage : report["stages"]) stages.push_back(stage["stage"]);
     EXPECT_EQ(stages, (std::vector<std::string>{"scrape", "build", "validate"}));
-    EXPECT_EQ(report["stages"][0]["counts"]["pages"], 6);
+    EXPECT_EQ(report["stages"][0]["counts"]["pages"], 7);
     EXPECT_EQ(json::parse(read_file(workspace / "checks" / "validation.json"))["status"], "passed");
 }
 
@@ -329,9 +329,9 @@ TEST_F(Fixture, SpineCoversNavigationTargets) {
     }
     EXPECT_GE(xpath(opf(), "//opf:itemref[not(@linear) or @linear='yes']").size(), 1u);
     auto toc = xpath(book->read("EPUB/nav.xhtml"), "//h:nav[@epub:type='toc']//h:a/@href");
-    EXPECT_EQ(toc.size(), 6u);
+    EXPECT_EQ(toc.size(), 7u);
     for (const auto& href : toc) EXPECT_TRUE(spine_hrefs.count(href)) << href;
-    EXPECT_EQ(book->names("EPUB/text/").size(), 6u);
+    EXPECT_EQ(book->names("EPUB/text/").size(), 7u);
 }
 
 // EPUB 3.4 section 8.3: exactly one toc nav, and every link has a non-empty label.
@@ -341,7 +341,8 @@ TEST_F(Fixture, NavigationDocumentIsWellFormed) {
     EXPECT_EQ(xpath(nav, "//h:nav//h:a[normalize-space(.)='']").size(), 0u);
     EXPECT_EQ(xpath(nav, "//h:nav[@epub:type='toc']//h:a"),
               (std::vector<std::string>{"Fixture Docs", "Guide", "API notes", "国際化 & \"Quotes\" <tags>",
-                                        "Formats et caractères", "Page Latin-1"}));
+                                        "Formats et caractères", "Page Latin-1",
+                                        "Interface: AsyncTypeSafeClientConfigurationOptions"}));
 }
 
 // EPUB 3.4 section 4.2.3: file names avoid reserved characters and SPACE, and stay under 255 bytes.
@@ -494,7 +495,7 @@ std::vector<std::string> finding_codes(const std::string& output) {
     return codes;
 }
 
-std::pair<int, std::string> validate_mutated(const Mutation* mutation) {
+std::pair<int, std::string> validate_mutated(const Mutation* mutation, bool reflow = false) {
     char temp_template[] = "/tmp/webspine-min-XXXXXX";
     fs::path tmp = mkdtemp(temp_template);
     auto tree = tmp / "tree";
@@ -502,8 +503,8 @@ std::pair<int, std::string> validate_mutated(const Mutation* mutation) {
     Packing packing;
     if (mutation) mutation->apply(tree, packing);
     pack(tree, tmp / "book.epub", packing);
-    auto result =
-        run_command(std::string(WEBSPINE_BINARY) + " validate " + (tmp / "book.epub").string() + " --no-reflow --json");
+    auto result = run_command(std::string(WEBSPINE_BINARY) + " validate " + (tmp / "book.epub").string() +
+                              (reflow ? " --json" : " --no-reflow --json"));
     fs::remove_all(tmp);
     return result;
 }
@@ -569,6 +570,41 @@ INSTANTIATE_TEST_SUITE_P(
                  [](const fs::path& t, Packing&) { replace_in(t / "EPUB/text/one.xhtml", "#usage", "#nowhere"); }}),
     [](const auto& info) { return std::string(info.param.name); });
 
+// Reflow names the overflowing word, not just the element type, so a failure says what to fix.
+TEST(Validator, ReflowReportsTheOverflowingWord) {
+    Mutation wide{"UnbreakableWord", "REFLOW_OVERFLOW_X", [](const fs::path& t, Packing&) {
+                      replace_in(t / "EPUB/text/two.xhtml", "</body>",
+                                 "<p style=\"white-space: nowrap\">see Supercalifragilistic_expialidocious_"
+                                 "identifier_that_never_wraps_anywhere_at_all</p></body>");
+                  }};
+    auto [code, output] = validate_mutated(&wide, true);
+    EXPECT_EQ(code, 1) << output;
+    auto report = json::parse(output);
+    bool named = false;
+    for (const auto& finding : report["findings"]) {
+        if (finding["code"] != "REFLOW_OVERFLOW_X") continue;
+        auto details =
+            json::parse(finding["message"].get<std::string>().substr(finding["message"].get<std::string>().find('{')));
+        for (const auto& offender : details["offenders"]) {
+            named = named || (offender["tag"] == "p" && offender["text"].get<std::string>().starts_with("Supercali"));
+        }
+    }
+    EXPECT_TRUE(named) << output;
+}
+
+// A chapter without <body> is invalid, and validate must still return the report, not crash in reflow.
+TEST(Validator, ReflowSurvivesAChapterWithoutBody) {
+    Mutation bodiless{"NoBody", "EPUBCHECK_FAILED", [](const fs::path& t, Packing&) {
+                          auto path = t / "EPUB/text/two.xhtml";
+                          auto text = read_file(path);
+                          write_file(path, text.substr(0, text.find("<body>")) + "</html>\n");
+                      }};
+    auto [code, output] = validate_mutated(&bodiless, true);
+    EXPECT_EQ(code, 1) << output;
+    auto codes = finding_codes(output);
+    EXPECT_NE(std::find(codes.begin(), codes.end(), "EPUBCHECK_FAILED"), codes.end()) << output;
+}
+
 // HTML's encoding sniffing falls back to windows-1252 when neither the HTTP
 // header nor a meta tag declares a charset; the scraper must still keep UTF-8 text.
 TEST_F(Fixture, PagesWithoutDeclaredCharsetKeepUtf8) {
@@ -595,6 +631,63 @@ TEST_F(Fixture, FragmentLinksTargetExistingIds) {
     auto stale = xpath(formats, "//h:a[.='ancre périmée']/@href");
     ASSERT_EQ(stale.size(), 1u) << formats;
     EXPECT_EQ(stale[0], book->chapter("guide.html").substr(10));
+}
+
+// Mintlify-style markup: permalink icons and accordion titles put blocks inside headings and links.
+TEST_F(Fixture, BlocksNeverNestInPhrasingContent) {
+    const std::string phrasing =
+        "self::h:a or self::h:span or self::h:strong or self::h:em or self::h:code or "
+        "self::h:p or self::h:h1 or self::h:h2 or self::h:h3 or self::h:h4 or self::h:h5 or "
+        "self::h:h6 or self::h:pre";
+    const std::string block =
+        "self::h:div or self::h:p or self::h:ul or self::h:ol or self::h:pre or "
+        "self::h:table or self::h:section or self::h:figure or self::h:blockquote";
+    for (const auto& name : book->names("EPUB/text/")) {
+        const auto& chapter = book->read(name);
+        EXPECT_EQ(xpath(chapter, "//*[" + block + "][ancestor::*[" + phrasing + "]]").size(), 0u) << name;
+    }
+    const auto& components = book->read(book->chapter("reference-components.html"));
+    EXPECT_EQ(xpath(components, "//h:h2[@id='setup']"), (std::vector<std::string>{"Setup"})) << components;
+    EXPECT_EQ(xpath(components, "//h:h2[@id='setup']//h:a").size(), 0u) << "the permalink icon is dropped";
+    EXPECT_EQ(xpath(components, "//h:h3[not(parent::*[@id])]"), (std::vector<std::string>{"Show properties"}))
+        << components;
+    EXPECT_EQ(xpath(components, "//h:a[@href='" + book->chapter("guide.html").substr(10) + "']"),
+              (std::vector<std::string>{"Guide cardOpen the guide from a card link."}))
+        << "card links keep their text";
+    EXPECT_EQ(xpath(components, "//h:pre/h:code"),
+              (std::vector<std::string>{"npm install fixture-sdk", "pnpm add fixture-sdk", "fixture install"}))
+        << "whitespace-only highlighter spans survive";
+    for (const auto& target : {"legacy-anchor", "wrapped-list"}) {
+        EXPECT_EQ(xpath(components, std::string("//*[@id='") + target + "']").size(), 1u) << target;
+        EXPECT_EQ(xpath(components, std::string("//h:a[@href='#") + target + "']").size(), 1u)
+            << target << " stays a working link target";
+    }
+}
+
+// Each panel is labelled with its tab name, so the tab strip itself is dropped instead of left as a bare list.
+TEST_F(Fixture, TabStripsBecomePanelLabels) {
+    const auto& components = book->read(book->chapter("reference-components.html"));
+    EXPECT_EQ(xpath(components, "//h:li[.='npm']").size(), 0u) << components;
+    EXPECT_EQ(xpath(components, "//*[@id='panel-npm']/h:h3"), (std::vector<std::string>{"npm"})) << components;
+    EXPECT_EQ(xpath(components, "//*[@id='panel-pnpm']/h:h3"), (std::vector<std::string>{"pnpm"})) << components;
+    EXPECT_EQ(xpath(components, "//*[@id='panel-pnpm']//h:code"), (std::vector<std::string>{"pnpm add fixture-sdk"}));
+}
+
+// Coverage compares prose, so Markdown links and inline HTML in llms-full.txt must not count as missing text.
+TEST_F(Fixture, CoverageIgnoresSourceMarkup) {
+    auto missing = json::parse(read_file(workspace / "checks" / "coverage.json"))["missing"];
+    EXPECT_EQ(missing, json::array()) << missing.dump(2);
+}
+
+// Long identifiers in headings, code, and links wrap instead of widening the page.
+TEST_F(Fixture, LongTokensWrap) {
+    auto reflow = json::parse(read_file(workspace / "checks" / "reflow.json"));
+    for (const auto& result : reflow) {
+        if (result["file"].get<std::string>().starts_with("reference-components.html")) {
+            EXPECT_EQ(result["offenders"], json::array()) << result.dump();
+            EXPECT_LE(result["documentWidth"], result["viewportWidth"]) << result.dump();
+        }
+    }
 }
 
 TEST_F(Fixture, DeclaredLegacyCharsetIsHonoured) {
