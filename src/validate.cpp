@@ -222,17 +222,35 @@ std::vector<Finding> reflow(const fs::path& extracted, const fs::path& checks) {
     return findings;
 }
 
+// Lowercases, collapses whitespace, drops Markdown emphasis and code characters, and folds the
+// typographic punctuation that renderers substitute for ASCII (smart quotes, dashes, no-break space).
+// Source and chapter text both pass through it, so the comparison sees the same words either way.
 std::string lowercase_words(std::string_view text) {
+    static const std::vector<std::pair<std::string_view, std::string_view>> folds = {
+        {"\u2018", "'"}, {"\u2019", "'"}, {"\u201C", "\""}, {"\u201D", "\""}, {"\u2013", "-"},
+        {"\u2014", "-"}, {"\u00A0", " "}, {"\u202F", " "},  {"\u2026", "..."}};
+    std::string folded;
+    for (size_t i = 0; i < text.size(); ++i) {
+        auto fold =
+            std::find_if(folds.begin(), folds.end(), [&](auto& f) { return text.substr(i).starts_with(f.first); });
+        if (fold == folds.end()) {
+            folded += text[i];
+        } else {
+            folded += fold->second;
+            i += fold->first.size() - 1;
+        }
+    }
     std::string out;
     bool pending_space = false;
-    for (unsigned char c : text) {
-        if (std::isspace(c)) {
+    for (char c : folded) {
+        if (std::isspace(static_cast<unsigned char>(c))) {
             pending_space = !out.empty();
             continue;
         }
+        if (c == '*' || c == '_' || c == '`' || c == '\\') continue;
         if (pending_space) out += ' ';
         pending_space = false;
-        out += static_cast<char>(std::tolower(c));
+        out += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
     return out;
 }
@@ -256,8 +274,24 @@ std::vector<Finding> coverage(const Workspace& workspace) {
     auto source = workspace.root / "source" / "llms-full.txt";
     if (!fs::exists(source)) return findings;
 
-    static const std::regex bullet(R"(^[*+-]\s+)");
-    static const std::regex markup(R"([*_`\\])");
+    static const std::regex bullet(R"(^(>\s*)*([*+-]|\d+[.)])\s+|^(>\s*)+)");
+    static const std::regex link(R"(!?\[([^\]]*)\](\([^)]*\)|\[[^\]]*\]))");
+    static const std::regex tag(R"(</?[A-Za-z][^<>]*>)");
+    // Tags are Markdown source except inside `code spans`, where `Promise<T>` is literal text.
+    // Links render as their label everywhere: API references put them inside code spans too.
+    auto strip_source_markup = [](const std::string& line) {
+        std::string out;
+        size_t start = 0;
+        for (bool in_code_span = false; start <= line.size(); in_code_span = !in_code_span) {
+            auto end = line.find('`', start);
+            auto part = line.substr(start, end == std::string::npos ? std::string::npos : end - start);
+            out += in_code_span ? part : std::regex_replace(part, tag, "");
+            if (end == std::string::npos) break;
+            out += '`';
+            start = end + 1;
+        }
+        return std::regex_replace(out, link, "$1");
+    };
     std::vector<std::string> source_lines;
     bool in_code = false;
     std::istringstream input(read_file(source));
@@ -268,7 +302,7 @@ std::vector<Finding> coverage(const Workspace& workspace) {
             continue;
         }
         if (in_code || line.size() < 40 || starts_with_any(line, {"#", "|", "![", "<"})) continue;
-        line = std::regex_replace(std::regex_replace(line, bullet, ""), markup, "");
+        line = strip_source_markup(std::regex_replace(line, bullet, ""));
         if (auto normalized = lowercase_words(line); !normalized.empty()) source_lines.push_back(normalized);
     }
     std::string chapter_text;
