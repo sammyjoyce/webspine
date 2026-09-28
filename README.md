@@ -6,7 +6,7 @@ It is a single C++23 binary. It drives headless Chromium over the DevTools proto
 
 ## Run it
 
-Nix supplies the matching Chromium and EPUBCheck versions. Outside Nix, `chromium` and `epubcheck` must be on `PATH`, or set `WEBSPINE_CHROMIUM` to a Chromium binary.
+Nix supplies the matching Chromium and EPUBCheck versions. Outside Nix, `chromium` and `epubcheck` must be on `PATH`, or set `WEBSPINE_CHROMIUM` to a Chromium binary. On macOS that is the executable inside the app bundle, such as `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`.
 
 ```sh
 nix run github:sammyjoyce/webspine -- https://docs.example.com -o example-docs.epub
@@ -16,7 +16,7 @@ The command exits with code 0 only when scraping, building, coverage, EPUBCheck,
 
 ## Install
 
-The flake builds on `x86_64-linux` and `aarch64-linux`. The wrapped binary finds its own Chromium, EPUBCheck, and fonts, so it needs no other setup.
+The flake builds on `x86_64-linux`, `aarch64-linux`, and `aarch64-darwin` (Apple silicon). The wrapped binary finds its own Chromium, EPUBCheck, and fonts, so it needs no other setup. On macOS the browser is Chrome for Testing, because nixpkgs builds Chromium only for Linux. Intel Macs are not supported.
 
 Install it into your profile:
 

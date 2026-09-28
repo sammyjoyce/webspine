@@ -10,12 +10,17 @@
   };
 
   outputs =
-    { self, nixpkgs, hegel-cpp }:
+    {
+      self,
+      nixpkgs,
+      hegel-cpp,
+    }:
     let
-      # Chromium in nixpkgs and the pipe-based DevTools transport are Linux-only.
+      # hegel-cpp publishes no prebuilt engine for x86_64-darwin, and nixpkgs has no Chromium there.
       systems = [
         "x86_64-linux"
         "aarch64-linux"
+        "aarch64-darwin"
       ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
     in
@@ -71,7 +76,9 @@
           default = pkgs.mkShell {
             inputsFrom = [ tested ];
             packages = tested.passthru.runtimeTools ++ [ pkgs.clang-tools ];
-            inherit (tested) HEGEL_CPP_SOURCE HEGEL_LIBHEGEL_LIBRARY FONTCONFIG_FILE;
+            env = tested.passthru.runtimeEnv // {
+              inherit (tested) HEGEL_CPP_SOURCE HEGEL_LIBHEGEL_LIBRARY;
+            };
           };
         }
       );

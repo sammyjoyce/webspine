@@ -4,6 +4,7 @@
 #include "validate.hpp"
 #include "workspace.hpp"
 
+#include <unistd.h>
 #include <CLI/CLI.hpp>
 
 #include <cstdlib>

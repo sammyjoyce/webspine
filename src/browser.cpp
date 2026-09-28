@@ -35,11 +35,11 @@ std::string chromium_binary() {
 Browser::Browser() {
     int input[2];
     int output[2];
-    if (pipe2(input, O_CLOEXEC) != 0 || pipe2(output, O_CLOEXEC) != 0) {
-        throw std::runtime_error("Could not create Chromium pipes");
-    }
-    char profile_template[] = "/tmp/webspine-chromium-XXXXXX";
-    if (!mkdtemp(profile_template)) throw std::runtime_error("Could not create a Chromium profile directory");
+    // macOS has no pipe2, so close-on-exec is set separately.
+    if (pipe(input) != 0 || pipe(output) != 0) throw std::runtime_error("Could not create Chromium pipes");
+    for (int fd : {input[0], input[1], output[0], output[1]}) fcntl(fd, F_SETFD, FD_CLOEXEC);
+    auto profile_template = (std::filesystem::temp_directory_path() / "webspine-chromium-XXXXXX").string();
+    if (!mkdtemp(profile_template.data())) throw std::runtime_error("Could not create a Chromium profile directory");
     profile_ = profile_template;
     std::string binary = chromium_binary();
     std::vector<std::string> args = {binary,

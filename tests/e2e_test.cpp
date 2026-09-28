@@ -7,6 +7,7 @@
 #include <libxml/xpath.h>
 #include <libxml/xpathInternals.h>
 #include <netinet/in.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -25,6 +26,8 @@ namespace {
 class StaticServer {
 public:
     explicit StaticServer(fs::path root) : root_(std::move(root)) {
+        // Chromium may drop a connection mid-response. macOS has no MSG_NOSIGNAL, so ignore SIGPIPE process-wide.
+        signal(SIGPIPE, SIG_IGN);
         socket_ = ::socket(AF_INET, SOCK_STREAM, 0);
         sockaddr_in address{};
         address.sin_family = AF_INET;
@@ -87,7 +90,7 @@ private:
             std::string response =
                 "HTTP/1.1 301 Moved Permanently\r\nLocation: /guide.html\r\nContent-Type: text/html\r\n"
                 "Content-Length: 0\r\nConnection: close\r\n\r\n";
-            send(client, response.data(), response.size(), MSG_NOSIGNAL);
+            send(client, response.data(), response.size(), 0);
             close(client);
             return;
         }
@@ -111,7 +114,7 @@ private:
         std::string response = "HTTP/1.1 " + status + "\r\nContent-Type: " + type +
                                "\r\nContent-Length: " + std::to_string(body.size()) + "\r\nConnection: close\r\n\r\n" +
                                body;
-        send(client, response.data(), response.size(), MSG_NOSIGNAL);
+        send(client, response.data(), response.size(), 0);
         close(client);
     }
 
@@ -749,11 +752,13 @@ TEST_F(Fixture, DeclaredLegacyCharsetIsHonoured) {
     EXPECT_NE(latin.find("café, déjà, naïve"), std::string::npos) << latin;
 }
 
-// With only stdin, stdout and stderr open, pipe2 returns fds 3 and 4, the numbers
+// With only stdin, stdout and stderr open, pipe returns fds 3 and 4, the numbers
 // Chromium's --remote-debugging-pipe expects. The browser must still receive both.
 TEST(Browser, StartsWhenPipesLandOnDebuggingFds) {
-    auto [code, output] = run_command("env -i HOME=/tmp PATH=\"$PATH\" " WEBSPINE_BINARY
-                                      " scrape about:blank --workspace /tmp/webspine-fd-probe --json 3<&- 4<&- 5<&-");
+    auto [code, output] = run_command(
+        "env -i HOME=/tmp PATH=\"$PATH\" "
+        "WEBSPINE_CHROMIUM=\"${WEBSPINE_CHROMIUM:-chromium}\" " WEBSPINE_BINARY
+        " scrape about:blank --workspace /tmp/webspine-fd-probe --json 3<&- 4<&- 5<&-");
     fs::remove_all("/tmp/webspine-fd-probe");
     EXPECT_EQ(output.find("Chromium exited"), std::string::npos) << output;
 }
