@@ -14,6 +14,7 @@ find_package(OpenSSL REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(CLI11 REQUIRED)
 
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/book.css)
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/src/book.css BOOK_CSS)
 file(CONFIGURE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/generated/book_css.hpp CONTENT
   "#pragma once\n#include <string_view>\nnamespace webspine {\ninline constexpr std::string_view book_css = R\"css(${BOOK_CSS})css\";\n}\n")
