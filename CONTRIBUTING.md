@@ -21,13 +21,13 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-`nix flake check` runs the same suites in the build sandbox. CI runs `nix flake check` on every pull request.
+`nix flake check` runs the same suites in the build sandbox and checks formatting against `.clang-format`. CI runs `nix flake check` on every pull request.
 
 ## Send a pull request
 
 - Keep one change per pull request.
 - Add a test that fails without your change. Use a property test in `tests/property_test.cpp` for URL, path, or naming rules. Use a fixture page in `tests/fixtures/site/` for extraction or EPUB output.
-- Match the style of the surrounding code.
+- Format C++ with `clang-format -i <files>`. The dev shell provides it, and `nix flake check` fails on unformatted code.
 - Run `nix flake check` before you push.
 
 By contributing, you agree that your contribution is licensed under the [MIT License](LICENSE).

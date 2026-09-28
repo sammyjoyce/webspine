@@ -43,6 +43,23 @@
           hegelSource = hegel-cpp.sourceInfo.outPath;
           libhegel = hegel-cpp.packages.${pkgs.stdenv.hostPlatform.system}.libhegel;
         };
+        format =
+          pkgs.runCommand "webspine-format-check"
+            {
+              src = nixpkgs.lib.fileset.toSource {
+                root = ./.;
+                fileset = nixpkgs.lib.fileset.unions [
+                  ./.clang-format
+                  (nixpkgs.lib.fileset.fileFilter (file: file.hasExt "cpp" || file.hasExt "hpp") ./.)
+                ];
+              };
+              nativeBuildInputs = [ pkgs.clang-tools ];
+            }
+            ''
+              cd $src
+              find . \( -name '*.cpp' -o -name '*.hpp' \) -print0 | xargs -0 clang-format --dry-run --Werror
+              touch $out
+            '';
       });
 
       devShells = forAllSystems (
