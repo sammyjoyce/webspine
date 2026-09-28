@@ -18,7 +18,7 @@
 #include <regex>
 #include <thread>
 
-using namespace docs2epub;
+using namespace webspine;
 
 namespace {
 
@@ -223,10 +223,10 @@ std::vector<std::string> xpath(const std::string& document, const std::string& e
 class Fixture : public ::testing::Test {
   protected:
     static void SetUpTestSuite() {
-        char temp_template[] = "/tmp/docs2epub-e2e-XXXXXX";
+        char temp_template[] = "/tmp/webspine-e2e-XXXXXX";
         tmp = mkdtemp(temp_template);
         auto site = tmp / "site";
-        fs::copy(DOCS2EPUB_FIXTURES "/site", site, fs::copy_options::recursive);
+        fs::copy(WEBSPINE_FIXTURES "/site", site, fs::copy_options::recursive);
         if (VIPS_INIT("e2e") != 0) throw std::runtime_error("vips init failed");
         vips::VImage::black(640, 320)
             .new_from_image(std::vector<double>{0xd8, 0xe8, 0xf4})
@@ -242,7 +242,7 @@ class Fixture : public ::testing::Test {
         write_file(site / "sitemap.xml", sitemap + "</urlset>");
         workspace = tmp / "work";
         epub = tmp / "fixture.epub";
-        std::tie(exit_code, output) = run_command(std::string(DOCS2EPUB_BINARY) + " " + origin + "/ --workspace " +
+        std::tie(exit_code, output) = run_command(std::string(WEBSPINE_BINARY) + " " + origin + "/ --workspace " +
                                                   workspace.string() + " --output " + epub.string() + " --json");
         if (fs::exists(epub)) book = std::make_unique<Book>(epub);
     }
@@ -480,14 +480,14 @@ std::vector<std::string> finding_codes(const std::string& output) {
 }
 
 std::pair<int, std::string> validate_mutated(const Mutation* mutation) {
-    char temp_template[] = "/tmp/docs2epub-min-XXXXXX";
+    char temp_template[] = "/tmp/webspine-min-XXXXXX";
     fs::path tmp = mkdtemp(temp_template);
     auto tree = tmp / "tree";
-    fs::copy(DOCS2EPUB_FIXTURES "/minimal-epub", tree, fs::copy_options::recursive);
+    fs::copy(WEBSPINE_FIXTURES "/minimal-epub", tree, fs::copy_options::recursive);
     Packing packing;
     if (mutation) mutation->apply(tree, packing);
     pack(tree, tmp / "book.epub", packing);
-    auto result = run_command(std::string(DOCS2EPUB_BINARY) + " validate " + (tmp / "book.epub").string() +
+    auto result = run_command(std::string(WEBSPINE_BINARY) + " validate " + (tmp / "book.epub").string() +
                               " --no-reflow --json");
     fs::remove_all(tmp);
     return result;
@@ -587,8 +587,8 @@ TEST_F(Fixture, DeclaredLegacyCharsetIsHonoured) {
 // With only stdin, stdout and stderr open, pipe2 returns fds 3 and 4, the numbers
 // Chromium's --remote-debugging-pipe expects. The browser must still receive both.
 TEST(Browser, StartsWhenPipesLandOnDebuggingFds) {
-    auto [code, output] = run_command("env -i HOME=/tmp PATH=\"$PATH\" " DOCS2EPUB_BINARY
-                                      " scrape about:blank --workspace /tmp/docs2epub-fd-probe --json 3<&- 4<&- 5<&-");
-    fs::remove_all("/tmp/docs2epub-fd-probe");
+    auto [code, output] = run_command("env -i HOME=/tmp PATH=\"$PATH\" " WEBSPINE_BINARY
+                                      " scrape about:blank --workspace /tmp/webspine-fd-probe --json 3<&- 4<&- 5<&-");
+    fs::remove_all("/tmp/webspine-fd-probe");
     EXPECT_EQ(output.find("Chromium exited"), std::string::npos) << output;
 }

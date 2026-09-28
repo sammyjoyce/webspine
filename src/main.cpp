@@ -10,7 +10,7 @@
 #include <iostream>
 #include <sstream>
 
-using namespace docs2epub;
+using namespace webspine;
 
 namespace {
 
@@ -84,7 +84,7 @@ int run(const ScrapeFlags& flags, const std::string& output, bool no_reflow, boo
 }
 
 int doctor(bool as_json) {
-    auto chromium = find_executable(std::getenv("DOCS2EPUB_CHROMIUM") ? std::getenv("DOCS2EPUB_CHROMIUM") : "chromium");
+    auto chromium = find_executable(std::getenv("WEBSPINE_CHROMIUM") ? std::getenv("WEBSPINE_CHROMIUM") : "chromium");
     auto epubcheck = find_executable("epubcheck");
     bool ok = chromium && epubcheck;
     json tools = {{"chromium", chromium ? json(*chromium) : json(nullptr)},
@@ -126,7 +126,7 @@ int main(int argc, char** argv) {
     if (!values.empty() && starts_with_any(values.front(), {"http://", "https://"})) values.insert(values.begin(), "run");
     std::reverse(values.begin(), values.end());
 
-    CLI::App app{"Turn a rendered documentation site into a validated EPUB.", "docs2epub"};
+    CLI::App app{"Turn a rendered documentation site into a validated EPUB.", "webspine"};
     app.set_version_flag("--version", std::string(version));
     app.require_subcommand(1);
 
@@ -194,7 +194,7 @@ int main(int argc, char** argv) {
         if (inspect_command->parsed()) return inspect(subject, workspace, as_json);
         return doctor(as_json);
     } catch (const std::exception& error) {
-        std::cerr << "docs2epub: " << error.what() << "\n";
+        std::cerr << "webspine: " << error.what() << "\n";
         return 1;
     }
 }

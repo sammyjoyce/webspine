@@ -1,5 +1,5 @@
 {
-  description = "docs2epub, a rendered documentation site to EPUB CLI";
+  description = "webspine, a rendered documentation site to EPUB CLI";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -22,12 +22,12 @@
     {
       # Builds against the consumer's nixpkgs; the test suite needs hegel-cpp and stays in checks.
       overlays.default = final: _prev: {
-        docs2epub = final.callPackage ./nix/package.nix { };
+        webspine = final.callPackage ./nix/package.nix { };
       };
 
       packages = forAllSystems (pkgs: {
-        default = self.packages.${pkgs.stdenv.hostPlatform.system}.docs2epub;
-        docs2epub = pkgs.callPackage ./nix/package.nix { };
+        default = self.packages.${pkgs.stdenv.hostPlatform.system}.webspine;
+        webspine = pkgs.callPackage ./nix/package.nix { };
       });
 
       apps = forAllSystems (pkgs: {

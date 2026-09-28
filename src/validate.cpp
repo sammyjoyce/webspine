@@ -16,7 +16,7 @@
 #include <set>
 #include <sstream>
 
-namespace docs2epub {
+namespace webspine {
 namespace {
 
 std::vector<fs::path> sorted_files(const fs::path& root, const std::string& extension, bool recursive) {
@@ -294,4 +294,4 @@ StageResult validate(const fs::path& epub_path, const std::optional<fs::path>& w
     return result;
 }
 
-}  // namespace docs2epub
+}  // namespace webspine

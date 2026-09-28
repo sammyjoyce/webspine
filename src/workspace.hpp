@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-namespace docs2epub {
+namespace webspine {
 
 namespace fs = std::filesystem;
 
@@ -28,4 +28,4 @@ class Workspace {
     void write_report(const json& value) const;
 };
 
-}  // namespace docs2epub
+}  // namespace webspine

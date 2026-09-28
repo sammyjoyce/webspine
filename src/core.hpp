@@ -5,7 +5,7 @@
 #include <string_view>
 #include <utility>
 
-namespace docs2epub {
+namespace webspine {
 
 inline constexpr std::string_view version = "0.1.0";
 
@@ -45,4 +45,4 @@ std::string escape_html(std::string_view text);
 std::string strip_whitespace(std::string_view text);
 bool starts_with_any(std::string_view text, std::initializer_list<std::string_view> prefixes);
 
-}  // namespace docs2epub
+}  // namespace webspine

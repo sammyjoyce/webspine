@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace docs2epub {
+namespace webspine {
 
 using json = nlohmann::ordered_json;
 
@@ -37,7 +37,7 @@ struct SiteRecord {
     std::string title;
     std::string language;
     std::string adapter;
-    int ir_version = docs2epub::ir_version;
+    int ir_version = webspine::ir_version;
     std::vector<std::string> sitemap_urls;
     std::vector<NavNode> nav;
     std::vector<std::string> pages;
@@ -82,4 +82,4 @@ void to_json(json& j, const Finding& value);
 void to_json(json& j, const StageResult& value);
 void to_json(json& j, const Report& value);
 
-}  // namespace docs2epub
+}  // namespace webspine

@@ -15,7 +15,7 @@
 #include <thread>
 #include <vector>
 
-namespace docs2epub {
+namespace webspine {
 namespace {
 
 using Clock = std::chrono::steady_clock;
@@ -26,7 +26,7 @@ int remaining_ms(Clock::time_point deadline) {
 }
 
 std::string chromium_binary() {
-    if (const char* value = std::getenv("DOCS2EPUB_CHROMIUM")) return value;
+    if (const char* value = std::getenv("WEBSPINE_CHROMIUM")) return value;
     return "chromium";
 }
 
@@ -38,7 +38,7 @@ Browser::Browser() {
     if (pipe2(input, O_CLOEXEC) != 0 || pipe2(output, O_CLOEXEC) != 0) {
         throw std::runtime_error("Could not create Chromium pipes");
     }
-    char profile_template[] = "/tmp/docs2epub-chromium-XXXXXX";
+    char profile_template[] = "/tmp/webspine-chromium-XXXXXX";
     if (!mkdtemp(profile_template)) throw std::runtime_error("Could not create a Chromium profile directory");
     profile_ = profile_template;
     std::string binary = chromium_binary();
@@ -69,7 +69,7 @@ Browser::Browser() {
         int null = open("/dev/null", O_RDWR);
         dup2(null, STDIN_FILENO);
         dup2(null, STDOUT_FILENO);
-        if (!std::getenv("DOCS2EPUB_TRACE")) dup2(null, STDERR_FILENO);
+        if (!std::getenv("WEBSPINE_TRACE")) dup2(null, STDERR_FILENO);
         std::vector<char*> argv;
         for (auto& arg : args) argv.push_back(arg.data());
         argv.push_back(nullptr);
@@ -132,7 +132,7 @@ json Browser::read_message(int timeout_ms) {
         char chunk[65536];
         ssize_t count = read(from_browser_, chunk, sizeof chunk);
         if (count <= 0) {
-            throw std::runtime_error("Chromium exited. Set DOCS2EPUB_CHROMIUM or run through nix run.");
+            throw std::runtime_error("Chromium exited. Set WEBSPINE_CHROMIUM or run through nix run.");
         }
         buffer_.append(chunk, static_cast<size_t>(count));
     }
@@ -259,4 +259,4 @@ void Browser::sleep_ms(int milliseconds) {
     std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 }
 
-}  // namespace docs2epub
+}  // namespace webspine

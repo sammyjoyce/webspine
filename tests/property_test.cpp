@@ -9,7 +9,7 @@
 #include <regex>
 
 namespace gs = hegel::generators;
-using namespace docs2epub;
+using namespace webspine;
 
 namespace {
 
@@ -129,13 +129,13 @@ TEST(Properties, ChapterNameIsPortableXhtmlFilenameWithUrlDigest) {
     }, settings);
 }
 
-TEST(Properties, DefaultWorkspaceStaysUnderDocs2epubRoot) {
+TEST(Properties, DefaultWorkspaceStaysUnderWebspineRoot) {
     hegel::test([](hegel::TestCase& tc) {
         auto domain = tc.draw("host", host());
         auto first = tc.draw("first", path_segment());
         auto second = tc.draw("second", path_segment());
         EXPECT_EQ(default_workspace("https://" + domain + "/" + first + "/" + second).string(),
-                  ".docs2epub/" + domain + "-" + first + "-" + second);
+                  ".webspine/" + domain + "-" + first + "-" + second);
     }, settings);
 }
 

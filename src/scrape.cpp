@@ -14,7 +14,7 @@
 #include <set>
 #include <stdexcept>
 
-namespace docs2epub {
+namespace webspine {
 namespace {
 
 const std::vector<std::string> content_selectors = {
@@ -321,4 +321,4 @@ SiteRecord scrape(const ScrapeOptions& options) {
     return site;
 }
 
-}  // namespace docs2epub
+}  // namespace webspine

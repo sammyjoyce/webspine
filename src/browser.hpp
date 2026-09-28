@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 
-namespace docs2epub {
+namespace webspine {
 
 // Headless Chromium driven through the DevTools protocol over
 // --remote-debugging-pipe: NUL-delimited JSON on the child's fds 3 and 4.
@@ -41,4 +41,4 @@ class Browser {
     std::vector<json> pending_events_;
 };
 
-}  // namespace docs2epub
+}  // namespace webspine

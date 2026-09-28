@@ -1,6 +1,6 @@
 #include "model.hpp"
 
-namespace docs2epub {
+namespace webspine {
 namespace {
 
 json optional_json(const std::optional<std::string>& value) {
@@ -104,4 +104,4 @@ void to_json(json& j, const Report& value) {
          {"format_version", value.format_version}};
 }
 
-}  // namespace docs2epub
+}  // namespace webspine

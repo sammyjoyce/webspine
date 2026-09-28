@@ -7,7 +7,7 @@
 
 #include <stdexcept>
 
-namespace docs2epub::html {
+namespace webspine::html {
 namespace {
 
 const xmlChar* xml_chars(const std::string& value) {
@@ -231,4 +231,4 @@ void remove_comments(Node root) {
 
 std::string outer_xml(Node node) { return save(node->doc, node); }
 
-}  // namespace docs2epub::html
+}  // namespace webspine::html

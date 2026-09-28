@@ -15,7 +15,7 @@
 #include <set>
 #include <stdexcept>
 
-namespace docs2epub {
+namespace webspine {
 namespace {
 
 const std::set<std::string> allowed_tags = {
@@ -307,7 +307,7 @@ BuiltBook write_package(const Workspace& workspace, const fs::path& requested_ou
                    "  <dc:title>" + title + "</dc:title>\n"
                    "  <dc:language>" + lang + "</dc:language>\n"
                    "  <dc:source>" + escape_html(site.base_url) + "</dc:source>\n"
-                   "  <dc:publisher>docs2epub</dc:publisher>\n"
+                   "  <dc:publisher>webspine</dc:publisher>\n"
                    "  <meta property=\"dcterms:modified\">" + timestamp() + "</meta>\n"
                    "  <meta property=\"rendition:layout\">reflowable</meta>\n"
                    "  <meta property=\"schema:accessModeSufficient\">textual</meta>\n"
@@ -440,4 +440,4 @@ BuiltBook build(const fs::path& workspace_path, const std::optional<fs::path>& o
     return write_package(workspace, output.value_or(workspace.dist / (route_name(site.title) + ".epub")));
 }
 
-}  // namespace docs2epub
+}  // namespace webspine

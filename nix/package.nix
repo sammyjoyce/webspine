@@ -31,7 +31,7 @@ let
   ];
 in
 stdenv.mkDerivation {
-  pname = "docs2epub";
+  pname = "webspine";
   version = "0.1.0";
 
   src = lib.fileset.toSource {
@@ -59,7 +59,7 @@ stdenv.mkDerivation {
     vips
   ] ++ lib.optional doCheck gtest;
 
-  cmakeFlags = [ (lib.cmakeBool "DOCS2EPUB_BUILD_TESTS" doCheck) ];
+  cmakeFlags = [ (lib.cmakeBool "WEBSPINE_BUILD_TESTS" doCheck) ];
 
   inherit doCheck;
   nativeCheckInputs = runtimeTools;
@@ -73,7 +73,7 @@ stdenv.mkDerivation {
   '';
 
   postFixup = ''
-    wrapProgram $out/bin/docs2epub \
+    wrapProgram $out/bin/webspine \
       --set-default FONTCONFIG_FILE ${fontsConf} \
       --prefix PATH : ${lib.makeBinPath runtimeTools}
   '';
@@ -82,8 +82,8 @@ stdenv.mkDerivation {
 
   meta = {
     description = "Turn rendered documentation sites into validated EPUB 3 books";
-    homepage = "https://github.com/sammyjoyce/docs2epub";
-    mainProgram = "docs2epub";
+    homepage = "https://github.com/sammyjoyce/webspine";
+    mainProgram = "webspine";
     platforms = lib.platforms.linux;
   };
 }

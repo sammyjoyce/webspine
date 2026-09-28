@@ -3,7 +3,7 @@
 #include "build.hpp"
 #include "core.hpp"
 
-using namespace docs2epub;
+using namespace webspine;
 
 TEST(Core, XmlIdIsStableAndXmlSafe) {
     EXPECT_EQ(xml_id("  42 / Score & Confidence "), "id-42-Score-Confidence");

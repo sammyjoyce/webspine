@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-namespace docs2epub {
+namespace webspine {
 
 struct HttpResponse {
     long status = 0;
@@ -23,4 +23,4 @@ void rasterize_svg(std::string_view svg, const std::filesystem::path& png);
 std::string normalize_image(const std::filesystem::path& source, const std::filesystem::path& images_dir);
 void render_cover(std::string_view title, const std::filesystem::path& jpeg);
 
-}  // namespace docs2epub
+}  // namespace webspine

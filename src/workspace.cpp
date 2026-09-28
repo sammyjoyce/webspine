@@ -7,7 +7,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace docs2epub {
+namespace webspine {
 
 std::string read_file(const fs::path& path) {
     std::ifstream input(path, std::ios::binary);
@@ -74,4 +74,4 @@ std::vector<PageRecord> Workspace::read_pages() const {
 
 void Workspace::write_report(const json& value) const { write_json(root / "report.json", value); }
 
-}  // namespace docs2epub
+}  // namespace webspine

@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace docs2epub {
+namespace webspine {
 namespace {
 
 
@@ -263,7 +263,7 @@ std::filesystem::path default_workspace(std::string_view url) {
     std::string path = strip_chars(parsed.path, "/");
     std::replace(path.begin(), path.end(), '/', '-');
     if (path.empty()) path = "root";
-    return std::filesystem::path(".docs2epub") / (parsed.netloc + "-" + path);
+    return std::filesystem::path(".webspine") / (parsed.netloc + "-" + path);
 }
 
 std::string lower(std::string value) {
@@ -356,4 +356,4 @@ std::string escape_html(std::string_view text) {
     return out;
 }
 
-}  // namespace docs2epub
+}  // namespace webspine

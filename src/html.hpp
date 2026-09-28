@@ -8,7 +8,7 @@
 #include <string_view>
 #include <vector>
 
-namespace docs2epub::html {
+namespace webspine::html {
 
 using Node = xmlNodePtr;
 
@@ -56,4 +56,4 @@ void set_text(Node node, std::string_view value);
 void remove_comments(Node root);
 std::string outer_xml(Node node);
 
-}  // namespace docs2epub::html
+}  // namespace webspine::html

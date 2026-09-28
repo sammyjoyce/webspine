@@ -8,7 +8,7 @@
 #include <set>
 #include <string>
 
-namespace docs2epub {
+namespace webspine {
 
 struct BuiltBook {
     std::filesystem::path epub;
@@ -26,4 +26,4 @@ std::string prune_dangling_fragments(const std::string& content, const std::stri
 
 BuiltBook build(const std::filesystem::path& workspace, const std::optional<std::filesystem::path>& output);
 
-}  // namespace docs2epub
+}  // namespace webspine

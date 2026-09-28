@@ -5,9 +5,9 @@
 #include <filesystem>
 #include <optional>
 
-namespace docs2epub {
+namespace webspine {
 
 StageResult validate(const std::filesystem::path& epub, const std::optional<std::filesystem::path>& workspace,
                      bool reflow);
 
-}  // namespace docs2epub
+}  // namespace webspine

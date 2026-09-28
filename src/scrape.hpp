@@ -6,7 +6,7 @@
 #include <optional>
 #include <string>
 
-namespace docs2epub {
+namespace webspine {
 
 struct ScrapeOptions {
     std::string url;
@@ -21,4 +21,4 @@ struct ScrapeOptions {
 
 SiteRecord scrape(const ScrapeOptions& options);
 
-}  // namespace docs2epub
+}  // namespace webspine
