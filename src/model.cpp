@@ -58,15 +58,30 @@ void from_json(const json& j, PageRecord& value) {
     value.warnings = list_or_empty<std::string>(j, "warnings");
 }
 
+void to_json(json& j, const SiteMetadata& value) {
+    j = {{"name", value.name},
+         {"description", value.description},
+         {"author", value.author},
+         {"captured_on", value.captured_on},
+         {"theme_colors", value.theme_colors},
+         {"logo", optional_json(value.logo)},
+         {"icon", optional_json(value.icon)}};
+}
+
+void from_json(const json& j, SiteMetadata& value) {
+    value.name = j.value("name", "");
+    value.description = j.value("description", "");
+    value.author = j.value("author", "");
+    value.captured_on = j.value("captured_on", "");
+    value.theme_colors = list_or_empty<std::string>(j, "theme_colors");
+    value.logo = optional_string(j, "logo");
+    value.icon = optional_string(j, "icon");
+}
+
 void to_json(json& j, const SiteRecord& value) {
-    j = {{"base_url", value.base_url},
-         {"title", value.title},
-         {"language", value.language},
-         {"adapter", value.adapter},
-         {"ir_version", value.ir_version},
-         {"sitemap_urls", value.sitemap_urls},
-         {"nav", value.nav},
-         {"pages", value.pages}};
+    j = {{"base_url", value.base_url}, {"title", value.title},           {"language", value.language},
+         {"adapter", value.adapter},   {"ir_version", value.ir_version}, {"sitemap_urls", value.sitemap_urls},
+         {"nav", value.nav},           {"pages", value.pages},           {"metadata", value.metadata}};
 }
 
 void from_json(const json& j, SiteRecord& value) {
@@ -78,6 +93,7 @@ void from_json(const json& j, SiteRecord& value) {
     value.sitemap_urls = j.at("sitemap_urls").get<std::vector<std::string>>();
     value.nav = j.at("nav").get<std::vector<NavNode>>();
     value.pages = j.at("pages").get<std::vector<std::string>>();
+    if (auto it = j.find("metadata"); it != j.end()) value.metadata = it->get<SiteMetadata>();
 }
 
 void to_json(json& j, const Finding& value) {

@@ -32,6 +32,18 @@ struct PageRecord {
     std::vector<std::string> warnings;
 };
 
+// Publication metadata read from the entry page's head and header. Every field is optional on the
+// site, so every field may be empty; workspaces scraped before it existed read back as all-empty.
+struct SiteMetadata {
+    std::string name;         // og:site_name, application-name, or the site part of <title>
+    std::string description;  // meta description or og:description
+    std::string author;       // meta author
+    std::string captured_on;  // YYYY-MM-DD of the scrape
+    std::vector<std::string> theme_colors;
+    std::optional<std::string> logo;  // file name under the workspace brand directory
+    std::optional<std::string> icon;  // file name under the workspace brand directory
+};
+
 struct SiteRecord {
     std::string base_url;
     std::string title;
@@ -41,6 +53,7 @@ struct SiteRecord {
     std::vector<std::string> sitemap_urls;
     std::vector<NavNode> nav;
     std::vector<std::string> pages;
+    SiteMetadata metadata;
 };
 
 struct Finding {
@@ -76,6 +89,8 @@ void to_json(json& j, const NavNode& value);
 void from_json(const json& j, NavNode& value);
 void to_json(json& j, const PageRecord& value);
 void from_json(const json& j, PageRecord& value);
+void to_json(json& j, const SiteMetadata& value);
+void from_json(const json& j, SiteMetadata& value);
 void to_json(json& j, const SiteRecord& value);
 void from_json(const json& j, SiteRecord& value);
 void to_json(json& j, const Finding& value);

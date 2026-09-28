@@ -17,7 +17,7 @@ class Workspace {
 public:
     explicit Workspace(const fs::path& root);
 
-    fs::path root, pages, assets, build, dist, checks;
+    fs::path root, pages, assets, build, dist, checks, brand;
 
     void create() const;
     void write_json(const fs::path& path, const json& value) const;
