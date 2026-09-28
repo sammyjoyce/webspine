@@ -16,7 +16,7 @@ using Node = xmlNodePtr;
 // editing are kept alive until the fragment is destroyed, so snapshots taken
 // with elements() never dangle.
 class Fragment {
-  public:
+public:
     explicit Fragment(std::string_view markup);
     ~Fragment();
     Fragment(const Fragment&) = delete;
@@ -30,7 +30,7 @@ class Fragment {
     Node wrap(Node node, std::string_view name);
     std::string xml() const;
 
-  private:
+private:
     xmlDocPtr doc_ = nullptr;
     Node root_ = nullptr;
     std::vector<Node> detached_;

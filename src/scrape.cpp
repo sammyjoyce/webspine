@@ -17,11 +17,10 @@
 namespace webspine {
 namespace {
 
-const std::vector<std::string> content_selectors = {
-    "main article", "article", "main [class*='content']", "main", "[role='main']"};
+const std::vector<std::string> content_selectors = {"main article", "article", "main [class*='content']", "main",
+                                                    "[role='main']"};
 
-const std::vector<std::string> nav_selectors = {
-    "#sidebar-content", "nav[aria-label*='doc' i]", "aside nav", "aside"};
+const std::vector<std::string> nav_selectors = {"#sidebar-content", "nav[aria-label*='doc' i]", "aside nav", "aside"};
 
 constexpr std::string_view extract_js = R"JS(
 ({contentSelectors, navSelectors}) => {
@@ -96,9 +95,8 @@ std::vector<std::string> sitemap_locations(const std::string& body) {
     xmlDocPtr doc = xmlReadMemory(body.data(), static_cast<int>(body.size()), nullptr, nullptr,
                                   XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
     if (!doc) return out;
-    for (auto node : html::elements(reinterpret_cast<xmlNodePtr>(doc), [](xmlNodePtr node) {
-             return html::name(node) == "loc";
-         })) {
+    for (auto node :
+         html::elements(reinterpret_cast<xmlNodePtr>(doc), [](xmlNodePtr node) { return html::name(node) == "loc"; })) {
         out.push_back(strip_whitespace(html::text(node)));
     }
     xmlFreeDoc(doc);
@@ -166,8 +164,9 @@ Downloaded download_assets(const std::string& page_url, const std::string& marku
             if (!fs::exists(path)) rasterize_svg(data, path);
             auto image = fragment.create("img");
             html::set_attr(image, "src", "assets/" + name);
-            html::set_attr(image, "alt", html::attr(diagram, "aria-label").value_or(
-                                             html::attr(diagram, "title").value_or("Diagram")));
+            html::set_attr(
+                image, "alt",
+                html::attr(diagram, "aria-label").value_or(html::attr(diagram, "title").value_or("Diagram")));
             fragment.replace(diagram, image);
             out.assets.push_back(name);
             rasterized.insert(name);

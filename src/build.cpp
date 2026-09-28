@@ -19,26 +19,22 @@ namespace webspine {
 namespace {
 
 const std::set<std::string> allowed_tags = {
-    "a",      "abbr",    "aside",  "b",      "bdi",   "bdo",        "blockquote", "br",   "caption", "cite",
-    "code",   "dd",      "del",    "details", "dfn",  "div",        "dl",         "dt",   "em",      "figcaption",
-    "figure", "h1",      "h2",     "h3",     "h4",    "h5",         "h6",         "hr",   "i",       "img",
-    "kbd",    "li",      "mark",   "ol",     "p",     "pre",        "q",          "rp",   "rt",      "ruby",
-    "s",      "samp",    "section", "small", "span",  "strong",     "sub",        "summary", "sup",  "table",
-    "tbody",  "td",      "tfoot",  "th",     "thead", "time",       "tr",         "u",    "ul",      "var",
-    "wbr",
+    "a", "abbr", "aside", "b", "bdi", "bdo", "blockquote", "br", "caption", "cite", "code", "dd", "del", "details",
+    "dfn", "div", "dl", "dt", "em", "figcaption", "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i", "img", "kbd",
+    "li", "mark", "ol", "p", "pre", "q", "rp", "rt", "ruby", "s", "samp", "section", "small", "span", "strong", "sub",
+    "summary", "sup", "table", "tbody", "td", "tfoot", "th", "thead", "time", "tr", "u", "ul", "var", "wbr",
     // Presentation MathML (EPUB 3.4 section 7.1.4.2).
-    "math",   "mi",      "mn",     "mo",     "ms",    "mtext",      "mspace",     "mrow", "mfrac",   "msqrt",
-    "mroot",  "mstyle",  "msub",   "msup",   "msubsup", "munder",   "mover",      "munderover", "mtable", "mtr",
-    "mtd",    "semantics", "annotation"};
+    "math", "mi", "mn", "mo", "ms", "mtext", "mspace", "mrow", "mfrac", "msqrt", "mroot", "mstyle", "msub", "msup",
+    "msubsup", "munder", "mover", "munderover", "mtable", "mtr", "mtd", "semantics", "annotation"};
 
 // abbr is absent although HTML allows it on th: EPUBCheck 5.3.0 rejects it.
 const std::set<std::string> allowed_attributes = {
-    "id",    "href",  "src",      "alt",      "title", "colspan", "rowspan", "scope",   "lang", "dir",
-    "start", "reversed", "value", "datetime", "cite",  "width",   "height",  "headers", "xmlns", "display",
-    "alttext", "mathvariant", "encoding"};
+    "id",     "href",    "src",   "alt",      "title",   "colspan",     "rowspan", "scope",
+    "lang",   "dir",     "start", "reversed", "value",   "datetime",    "cite",    "width",
+    "height", "headers", "xmlns", "display",  "alttext", "mathvariant", "encoding"};
 
-const std::set<std::string> block_containers = {"aside", "blockquote", "body", "dd", "div", "figure",
-                                                "li",    "section",    "td",   "th"};
+const std::set<std::string> block_containers = {"aside",  "blockquote", "body",    "dd", "div",
+                                                "figure", "li",         "section", "td", "th"};
 
 void convert_tabular_pre(html::Fragment& fragment) {
     static const std::regex column_gap(R"(\s{2,})");
@@ -48,7 +44,8 @@ void convert_tabular_pre(html::Fragment& fragment) {
         size_t start = 0;
         while (start <= content.size()) {
             auto end = content.find_first_of("\n\r", start);
-            auto line = strip_whitespace(content.substr(start, end == std::string::npos ? std::string::npos : end - start));
+            auto line =
+                strip_whitespace(content.substr(start, end == std::string::npos ? std::string::npos : end - start));
             if (!line.empty()) {
                 rows.emplace_back(std::sregex_token_iterator(line.begin(), line.end(), column_gap, -1),
                                   std::sregex_token_iterator());

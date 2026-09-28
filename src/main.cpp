@@ -123,7 +123,8 @@ void add_scrape_flags(CLI::App* command, ScrapeFlags& flags, bool& as_json) {
 
 int main(int argc, char** argv) {
     std::vector<std::string> values(argv + 1, argv + argc);
-    if (!values.empty() && starts_with_any(values.front(), {"http://", "https://"})) values.insert(values.begin(), "run");
+    if (!values.empty() && starts_with_any(values.front(), {"http://", "https://"}))
+        values.insert(values.begin(), "run");
     std::reverse(values.begin(), values.end());
 
     CLI::App app{"Turn a rendered documentation site into a validated EPUB.", "webspine"};
@@ -142,7 +143,8 @@ int main(int argc, char** argv) {
     auto* scrape_command = app.add_subcommand("scrape", "Capture rendered pages into a rerunnable workspace.");
     add_scrape_flags(scrape_command, flags, as_json);
 
-    auto* build_command = app.add_subcommand("build", "Build an EPUB from a captured workspace without network access.");
+    auto* build_command =
+        app.add_subcommand("build", "Build an EPUB from a captured workspace without network access.");
     build_command->add_option("--workspace", workspace)->required();
     build_command->add_option("-o,--output", output);
     build_command->add_flag("--json", as_json);
@@ -180,14 +182,16 @@ int main(int argc, char** argv) {
         }
         if (build_command->parsed()) {
             auto built = build(workspace, output.empty() ? std::nullopt : std::optional<fs::path>(output));
-            emit({{"status", "passed"}, {"epub", built.epub.string()}, {"chapters", built.chapters},
+            emit({{"status", "passed"},
+                  {"epub", built.epub.string()},
+                  {"chapters", built.chapters},
                   {"assets", built.assets}},
                  as_json);
             return 0;
         }
         if (validate_command->parsed()) {
-            auto result = validate(epub_path, workspace.empty() ? std::nullopt : std::optional<fs::path>(workspace),
-                                   !no_reflow);
+            auto result =
+                validate(epub_path, workspace.empty() ? std::nullopt : std::optional<fs::path>(workspace), !no_reflow);
             emit(result, as_json);
             return result.status == "passed" ? 0 : 1;
         }

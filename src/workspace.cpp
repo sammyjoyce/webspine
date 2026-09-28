@@ -49,15 +49,13 @@ SiteRecord Workspace::read_site() const {
     auto value = json::parse(read_file(root / "site.json"));
     int version = value.at("ir_version").get<int>();
     if (version != ir_version) {
-        throw std::runtime_error("Workspace IR version " + std::to_string(version) +
-                                 " is not supported; expected " + std::to_string(ir_version) + ".");
+        throw std::runtime_error("Workspace IR version " + std::to_string(version) + " is not supported; expected " +
+                                 std::to_string(ir_version) + ".");
     }
     return value.get<SiteRecord>();
 }
 
-void Workspace::write_page(const PageRecord& page) const {
-    write_json(pages / (page_key(page.url) + ".json"), page);
-}
+void Workspace::write_page(const PageRecord& page) const { write_json(pages / (page_key(page.url) + ".json"), page); }
 
 std::vector<PageRecord> Workspace::read_pages() const {
     std::vector<fs::path> paths;

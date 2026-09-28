@@ -242,21 +242,17 @@ void Browser::navigate(const std::string& url, bool wait_for_network_idle) {
 }
 
 json Browser::evaluate(std::string_view expression) {
-    json result = call("Runtime.evaluate", {{"expression", std::string(expression)},
-                                            {"awaitPromise", true},
-                                            {"returnByValue", true}});
+    json result = call("Runtime.evaluate",
+                       {{"expression", std::string(expression)}, {"awaitPromise", true}, {"returnByValue", true}});
     if (result.contains("exceptionDetails")) {
         const auto& details = result["exceptionDetails"];
-        std::string message = details.contains("exception")
-                                  ? details["exception"].value("description", "script error")
-                                  : details.value("text", "script error");
+        std::string message = details.contains("exception") ? details["exception"].value("description", "script error")
+                                                            : details.value("text", "script error");
         throw std::runtime_error("Page script failed: " + message);
     }
     return result.at("result").value("value", json(nullptr));
 }
 
-void Browser::sleep_ms(int milliseconds) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
-}
+void Browser::sleep_ms(int milliseconds) { std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds)); }
 
 }  // namespace webspine

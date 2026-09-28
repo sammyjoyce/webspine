@@ -64,10 +64,11 @@ HttpResponse http_get(const std::string& url, long timeout_seconds) {
 
 std::string extension_for_media_type(std::string_view media_type) {
     static const std::map<std::string, std::string> extensions = {
-        {"image/avif", ".avif"}, {"image/bmp", ".bmp"},      {"image/gif", ".gif"},
-        {"image/jpeg", ".jpg"},  {"image/png", ".png"},      {"image/svg+xml", ".svg"},
-        {"image/tiff", ".tiff"}, {"image/webp", ".webp"},    {"image/x-icon", ".ico"},
-        {"image/vnd.microsoft.icon", ".ico"}};
+        {"image/avif", ".avif"},  {"image/bmp", ".bmp"},
+        {"image/gif", ".gif"},    {"image/jpeg", ".jpg"},
+        {"image/png", ".png"},    {"image/svg+xml", ".svg"},
+        {"image/tiff", ".tiff"},  {"image/webp", ".webp"},
+        {"image/x-icon", ".ico"}, {"image/vnd.microsoft.icon", ".ico"}};
     std::string type = lower(strip_whitespace(media_type.substr(0, media_type.find(';'))));
     auto it = extensions.find(type);
     return it == extensions.end() ? "" : it->second;
@@ -75,9 +76,9 @@ std::string extension_for_media_type(std::string_view media_type) {
 
 std::string media_type_for_file(const std::filesystem::path& path) {
     static const std::map<std::string, std::string> types = {
-        {".avif", "image/avif"}, {".css", "text/css"},       {".gif", "image/gif"},
-        {".jpeg", "image/jpeg"}, {".jpg", "image/jpeg"},     {".png", "image/png"},
-        {".svg", "image/svg+xml"}, {".webp", "image/webp"},  {".xhtml", "application/xhtml+xml"}};
+        {".avif", "image/avif"},   {".css", "text/css"},    {".gif", "image/gif"},
+        {".jpeg", "image/jpeg"},   {".jpg", "image/jpeg"},  {".png", "image/png"},
+        {".svg", "image/svg+xml"}, {".webp", "image/webp"}, {".xhtml", "application/xhtml+xml"}};
     auto it = types.find(lower(path.extension().string()));
     return it == types.end() ? "application/octet-stream" : it->second;
 }
@@ -101,8 +102,8 @@ std::string normalize_image(const std::filesystem::path& source, const std::file
     if (!loader) throw std::runtime_error("Unrecognized image format");
     // Loader class names look like "VipsForeignLoadWebpFile".
     std::string format = lower(std::string(loader).substr(std::string_view("VipsForeignLoad").size()));
-    VImage image = VImage::thumbnail(source.c_str(), 2000,
-                                     VImage::option()->set("height", 2400)->set("size", VIPS_SIZE_DOWN));
+    VImage image =
+        VImage::thumbnail(source.c_str(), 2000, VImage::option()->set("height", 2400)->set("size", VIPS_SIZE_DOWN));
     bool convert = starts_with_any(format, {"webp", "heif", "tiff", "magick"});
     std::string output_name = convert ? stem + ".png" : source.filename().string();
     image.write_to_file((images_dir / output_name).c_str());

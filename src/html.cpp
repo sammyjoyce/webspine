@@ -10,9 +10,7 @@
 namespace webspine::html {
 namespace {
 
-const xmlChar* xml_chars(const std::string& value) {
-    return reinterpret_cast<const xmlChar*>(value.c_str());
-}
+const xmlChar* xml_chars(const std::string& value) { return reinterpret_cast<const xmlChar*>(value.c_str()); }
 
 std::string to_string(const xmlChar* value) {
     return value ? std::string(reinterpret_cast<const char*>(value)) : std::string();
@@ -38,8 +36,10 @@ void collect_text(Node node, std::vector<std::string>& out) {
 
 void cdata_to_text(Node node) {
     for (Node child = node->children; child; child = child->next) {
-        if (child->type == XML_CDATA_SECTION_NODE) child->type = XML_TEXT_NODE;
-        else if (child->type == XML_ELEMENT_NODE) cdata_to_text(child);
+        if (child->type == XML_CDATA_SECTION_NODE)
+            child->type = XML_TEXT_NODE;
+        else if (child->type == XML_ELEMENT_NODE)
+            cdata_to_text(child);
     }
 }
 

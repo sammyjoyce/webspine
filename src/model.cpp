@@ -3,9 +3,7 @@
 namespace webspine {
 namespace {
 
-json optional_json(const std::optional<std::string>& value) {
-    return value ? json(*value) : json(nullptr);
-}
+json optional_json(const std::optional<std::string>& value) { return value ? json(*value) : json(nullptr); }
 
 std::optional<std::string> optional_string(const json& j, const char* key) {
     auto it = j.find(key);
@@ -21,10 +19,9 @@ std::vector<T> list_or_empty(const json& j, const char* key) {
 
 }  // namespace
 
-Finding error_finding(std::string code, std::string message, std::string stage,
-                      std::optional<std::string> file) {
-    return {std::move(code), "error", std::move(message), std::move(stage), std::nullopt, std::move(file),
-            std::nullopt};
+Finding error_finding(std::string code, std::string message, std::string stage, std::optional<std::string> file) {
+    return {std::move(code), "error",         std::move(message), std::move(stage),
+            std::nullopt,    std::move(file), std::nullopt};
 }
 
 void to_json(json& j, const NavNode& value) {
@@ -62,10 +59,14 @@ void from_json(const json& j, PageRecord& value) {
 }
 
 void to_json(json& j, const SiteRecord& value) {
-    j = {{"base_url", value.base_url},     {"title", value.title},
-         {"language", value.language},     {"adapter", value.adapter},
-         {"ir_version", value.ir_version}, {"sitemap_urls", value.sitemap_urls},
-         {"nav", value.nav},               {"pages", value.pages}};
+    j = {{"base_url", value.base_url},
+         {"title", value.title},
+         {"language", value.language},
+         {"adapter", value.adapter},
+         {"ir_version", value.ir_version},
+         {"sitemap_urls", value.sitemap_urls},
+         {"nav", value.nav},
+         {"pages", value.pages}};
 }
 
 void from_json(const json& j, SiteRecord& value) {
@@ -96,12 +97,8 @@ void to_json(json& j, const StageResult& value) {
 }
 
 void to_json(json& j, const Report& value) {
-    j = {{"command", value.command},
-         {"status", value.status},
-         {"workspace", value.workspace},
-         {"epub", optional_json(value.epub)},
-         {"stages", value.stages},
-         {"format_version", value.format_version}};
+    j = {{"command", value.command},          {"status", value.status}, {"workspace", value.workspace},
+         {"epub", optional_json(value.epub)}, {"stages", value.stages}, {"format_version", value.format_version}};
 }
 
 }  // namespace webspine

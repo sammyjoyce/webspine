@@ -4,14 +4,13 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
 #include <cctype>
+#include <cstdint>
 #include <stdexcept>
 #include <vector>
 
 namespace webspine {
 namespace {
-
 
 std::string strip_chars(std::string_view text, std::string_view chars) {
     auto first = text.find_first_not_of(chars);
@@ -37,8 +36,8 @@ std::string replace_runs(std::string_view text, Keep keep) {
 }
 
 bool uses_netloc(std::string_view scheme) {
-    return scheme.empty() || scheme == "http" || scheme == "https" || scheme == "file" ||
-           scheme == "ftp" || scheme == "ws" || scheme == "wss";
+    return scheme.empty() || scheme == "http" || scheme == "https" || scheme == "file" || scheme == "ftp" ||
+           scheme == "ws" || scheme == "wss";
 }
 
 std::string remove_dot_segments(std::string_view path) {
@@ -49,8 +48,7 @@ std::string remove_dot_segments(std::string_view path) {
     size_t start = absolute ? 1 : 0;
     while (true) {
         auto slash = input.find('/', start);
-        segments.push_back(input.substr(start, slash == std::string::npos ? std::string::npos
-                                                                           : slash - start));
+        segments.push_back(input.substr(start, slash == std::string::npos ? std::string::npos : slash - start));
         if (slash == std::string::npos) break;
         start = slash + 1;
     }
@@ -74,8 +72,7 @@ std::string remove_dot_segments(std::string_view path) {
     return result;
 }
 
-std::array<unsigned char, EVP_MAX_MD_SIZE> digest(const EVP_MD* type, std::string_view data,
-                                                  unsigned int& size) {
+std::array<unsigned char, EVP_MAX_MD_SIZE> digest(const EVP_MD* type, std::string_view data, unsigned int& size) {
     std::array<unsigned char, EVP_MAX_MD_SIZE> out{};
     if (!EVP_Digest(data.data(), data.size(), out.data(), &size, type, nullptr)) {
         throw std::runtime_error("OpenSSL digest failed");
@@ -227,25 +224,22 @@ std::string uuid5_url(std::string_view name) {
     bytes[6] = static_cast<unsigned char>((bytes[6] & 0x0f) | 0x50);
     bytes[8] = static_cast<unsigned char>((bytes[8] & 0x3f) | 0x80);
     std::string digits = hex(bytes.data(), 16);
-    return digits.substr(0, 8) + "-" + digits.substr(8, 4) + "-" + digits.substr(12, 4) + "-" +
-           digits.substr(16, 4) + "-" + digits.substr(20, 12);
+    return digits.substr(0, 8) + "-" + digits.substr(8, 4) + "-" + digits.substr(12, 4) + "-" + digits.substr(16, 4) +
+           "-" + digits.substr(20, 12);
 }
 
 std::string route_name(std::string_view route) {
     std::string value = strip_chars(route, "/");
     if (value.empty()) value = "index";
-    value = replace_runs(value, [](unsigned char c) {
-        return std::isalnum(c) || c == '.' || c == '_' || c == '-';
-    });
+    value = replace_runs(value, [](unsigned char c) { return std::isalnum(c) || c == '.' || c == '_' || c == '-'; });
     value = strip_chars(value, "-");
     if (value.empty() || value == "." || value == "..") return "index";
     return value;
 }
 
 std::string xml_id(std::string_view value) {
-    std::string out = replace_runs(strip_whitespace(value), [](unsigned char c) {
-        return std::isalnum(c) || c == '_' || c == '.' || c == '-';
-    });
+    std::string out = replace_runs(strip_whitespace(value),
+                                   [](unsigned char c) { return std::isalnum(c) || c == '_' || c == '.' || c == '-'; });
     out = strip_chars(out, "-");
     if (out.empty()) return "id";
     if (!(std::isalpha(static_cast<unsigned char>(out[0])) || out[0] == '_')) out = "id-" + out;
@@ -345,12 +339,23 @@ std::string escape_html(std::string_view text) {
     out.reserve(text.size());
     for (char c : text) {
         switch (c) {
-            case '&': out += "&amp;"; break;
-            case '<': out += "&lt;"; break;
-            case '>': out += "&gt;"; break;
-            case '"': out += "&quot;"; break;
-            case '\'': out += "&#x27;"; break;
-            default: out += c;
+            case '&':
+                out += "&amp;";
+                break;
+            case '<':
+                out += "&lt;";
+                break;
+            case '>':
+                out += "&gt;";
+                break;
+            case '"':
+                out += "&quot;";
+                break;
+            case '\'':
+                out += "&#x27;";
+                break;
+            default:
+                out += c;
         }
     }
     return out;
