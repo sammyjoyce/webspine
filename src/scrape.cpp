@@ -67,6 +67,7 @@ constexpr std::string_view extract_js = R"JS(
     title: a.textContent.trim(), href: a.href
   })) : [];
   return {
+    location: location.href,
     title: document.querySelector('h1')?.textContent.trim() || document.title,
     language: document.documentElement.lang || 'en',
     html: clone.innerHTML,
@@ -255,10 +256,18 @@ SiteRecord scrape(const ScrapeOptions& options) {
                                  std::to_string(options.max_pages) + ".");
     }
 
-    for (const auto& url : discovered) {
-        if (cached.count(url) && !options.force) continue;
-        json rendered = url == base_url ? first : render(browser, url, content, nav_order);
+    // A discovered URL can redirect to another page. Pages are stored under the URL they
+    // land on, so an alias and its target become one chapter.
+    std::map<std::string, std::string> landed_on;
+    std::set<std::string> captured = options.force ? std::set<std::string>{} : cached;
+    for (const auto& discovered_url : discovered) {
+        if (captured.count(discovered_url)) continue;
+        json rendered = discovered_url == base_url ? first : render(browser, discovered_url, content, nav_order);
         if (rendered.contains("error")) continue;
+        std::string url = canonical_url(string_field(rendered, "location"));
+        if (url.empty() || !in_scope(url, base_url)) continue;
+        landed_on[discovered_url] = url;
+        if (!captured.insert(url).second) continue;
         auto downloaded = download_assets(url, string_field(rendered, "html"), workspace);
         std::vector<std::string> sources;
         if (sitemap_set.count(url)) sources.push_back("sitemap");
@@ -277,20 +286,27 @@ SiteRecord scrape(const ScrapeOptions& options) {
         workspace.write_page(record);
     }
 
+    auto resolve = [&](const std::string& url) {
+        auto it = landed_on.find(url);
+        return it == landed_on.end() ? url : it->second;
+    };
     auto pages = workspace.read_pages();
     std::map<std::string, std::string> titles;
     for (const auto& page : pages) titles[page.url] = page.title;
     std::vector<NavNode> nav;
     std::set<std::string> in_nav;
-    for (const auto& [title, url] : nav_links) {
-        if (titles.count(url)) {
-            nav.push_back({title, url, {}});
-            in_nav.insert(url);
-        }
+    for (const auto& [title, alias] : nav_links) {
+        auto url = resolve(alias);
+        if (titles.count(url) && in_nav.insert(url).second) nav.push_back({title, url, {}});
     }
-    for (const auto& url : discovered) {
-        if (titles.count(url) && !in_nav.count(url)) nav.push_back({titles[url], url, {}});
+    for (const auto& alias : discovered) {
+        auto url = resolve(alias);
+        if (titles.count(url) && in_nav.insert(url).second) nav.push_back({titles[url], url, {}});
     }
+    std::vector<std::string> resolved_sitemap;
+    std::set<std::string> seen_sitemap;
+    for (const auto& url : sitemap) append_unique(resolved_sitemap, seen_sitemap, resolve(url));
+    sitemap = resolved_sitemap;
     std::vector<std::string> page_urls;
     for (const auto& [url, title] : titles) page_urls.push_back(url);
     SiteRecord site{base_url,

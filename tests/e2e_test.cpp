@@ -83,6 +83,13 @@ class StaticServer {
         }
         std::string target = request.substr(4, request.find(' ', 4) - 4);
         target = percent_decode(target.substr(0, target.find_first_of("?#")));
+        if (target == "/moved") {
+            std::string response = "HTTP/1.1 301 Moved Permanently\r\nLocation: /guide.html\r\nContent-Type: text/html\r\n"
+                                   "Content-Length: 0\r\nConnection: close\r\n\r\n";
+            send(client, response.data(), response.size(), MSG_NOSIGNAL);
+            close(client);
+            return;
+        }
         if (target.ends_with('/')) target += "index.html";
         auto path = root_ / target.substr(1);
         std::string status = "200 OK";
@@ -228,6 +235,7 @@ class Fixture : public ::testing::Test {
         StaticServer server(site);
         origin = "http://127.0.0.1:" + std::to_string(server.port());
         std::string sitemap = "<?xml version=\"1.0\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">";
+        sitemap += "<url><loc>" + origin + "/moved</loc></url>";
         for (auto path : {"/", "/guide.html", "/reference/api%20notes.html", "/reference/i18n.html", "/reference/formats.html", "/reference/latin1.html"}) {
             sitemap += "<url><loc>" + origin + path + "</loc></url>";
         }
@@ -574,4 +582,13 @@ TEST_F(Fixture, FragmentLinksTargetExistingIds) {
 TEST_F(Fixture, DeclaredLegacyCharsetIsHonoured) {
     const auto& latin = book->read(book->chapter("reference-latin1.html"));
     EXPECT_NE(latin.find("café, déjà, naïve"), std::string::npos) << latin;
+}
+
+// With only stdin, stdout and stderr open, pipe2 returns fds 3 and 4, the numbers
+// Chromium's --remote-debugging-pipe expects. The browser must still receive both.
+TEST(Browser, StartsWhenPipesLandOnDebuggingFds) {
+    auto [code, output] = run_command("env -i HOME=/tmp PATH=\"$PATH\" " DOCS2EPUB_BINARY
+                                      " scrape about:blank --workspace /tmp/docs2epub-fd-probe --json 3<&- 4<&- 5<&-");
+    fs::remove_all("/tmp/docs2epub-fd-probe");
+    EXPECT_EQ(output.find("Chromium exited"), std::string::npos) << output;
 }

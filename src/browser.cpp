@@ -60,12 +60,16 @@ Browser::Browser() {
     pid_ = fork();
     if (pid_ < 0) throw std::runtime_error("Could not fork Chromium");
     if (pid_ == 0) {
-        dup2(input[0], 3);
-        dup2(output[1], 4);
+        // Chromium reads fd 3 and writes fd 4. Move both ends above that range first:
+        // dup2 onto its own fd keeps O_CLOEXEC, and the second dup2 could clobber the first.
+        int read_end = fcntl(input[0], F_DUPFD, 5);
+        int write_end = fcntl(output[1], F_DUPFD, 5);
+        dup2(read_end, 3);
+        dup2(write_end, 4);
         int null = open("/dev/null", O_RDWR);
         dup2(null, STDIN_FILENO);
         dup2(null, STDOUT_FILENO);
-        dup2(null, STDERR_FILENO);
+        if (!std::getenv("DOCS2EPUB_TRACE")) dup2(null, STDERR_FILENO);
         std::vector<char*> argv;
         for (auto& arg : args) argv.push_back(arg.data());
         argv.push_back(nullptr);
@@ -196,8 +200,9 @@ void Browser::continue_paused_document(const json& params) {
         if (lower(header.value("name", "")) == "content-type") content_type = &header;
     }
     auto type = content_type ? lower(content_type->value("value", "")) : std::string();
-    if (!params.contains("responseStatusCode") || !type.starts_with("text/html") ||
-        type.find("charset=") != std::string::npos) {
+    int status = params.value("responseStatusCode", 0);
+    bool has_body = status >= 200 && status < 300 && status != 204;
+    if (!has_body || !type.starts_with("text/html") || type.find("charset=") != std::string::npos) {
         call("Fetch.continueResponse", request);
         return;
     }

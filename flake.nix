@@ -3,67 +3,60 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
     hegel-cpp = {
       url = "github:hegeldev/hegel-cpp/v0.13.0?dir=nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, hegel-cpp }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = nixpkgs.legacyPackages.${system};
-        lib = pkgs.lib;
-        libhegel = hegel-cpp.packages.${system}.libhegel;
-        hegelEnv = {
-          HEGEL_CPP_SOURCE = "${hegel-cpp.sourceInfo.outPath}";
-          HEGEL_LIBHEGEL_LIBRARY = "${libhegel}/lib/libhegel_c.so";
-        };
-        fontsConf = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };
-        runtimeTools = [ pkgs.chromium pkgs.epubcheck ];
-        buildTools = [ pkgs.cmake pkgs.ninja pkgs.pkg-config pkgs.makeWrapper ];
-        libraries = with pkgs; [
-          cli11
-          curl
-          gtest
-          libxml2
-          libzip
-          nlohmann_json
-          openssl
-          vips
-        ];
-        app = pkgs.stdenv.mkDerivation (hegelEnv // {
-          pname = "docs2epub";
-          version = "0.1.0";
-          src = lib.fileset.toSource {
-            root = ./.;
-            fileset = lib.fileset.unions [ ./CMakeLists.txt ./src ./tests ];
-          };
-          nativeBuildInputs = buildTools;
-          buildInputs = libraries;
-          nativeCheckInputs = runtimeTools;
-          doCheck = true;
-          FONTCONFIG_FILE = fontsConf;
-          preCheck = ''
-            export HOME=$TMPDIR
-          '';
-          postFixup = ''
-            wrapProgram $out/bin/docs2epub \
-              --set-default FONTCONFIG_FILE ${fontsConf} \
-              --prefix PATH : ${lib.makeBinPath runtimeTools}
-          '';
-        });
-      in {
-        packages.default = app;
-        apps.default = {
-          type = "app";
-          program = "${app}/bin/docs2epub";
-        };
-        devShells.default = pkgs.mkShell (hegelEnv // {
-          packages = buildTools ++ libraries ++ runtimeTools ++ [ pkgs.clang-tools ];
-          FONTCONFIG_FILE = fontsConf;
-        });
-        checks.default = app;
+  outputs =
+    { self, nixpkgs, hegel-cpp }:
+    let
+      # Chromium in nixpkgs and the pipe-based DevTools transport are Linux-only.
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+      forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+    in
+    {
+      # Builds against the consumer's nixpkgs; the test suite needs hegel-cpp and stays in checks.
+      overlays.default = final: _prev: {
+        docs2epub = final.callPackage ./nix/package.nix { };
+      };
+
+      packages = forAllSystems (pkgs: {
+        default = self.packages.${pkgs.stdenv.hostPlatform.system}.docs2epub;
+        docs2epub = pkgs.callPackage ./nix/package.nix { };
       });
+
+      apps = forAllSystems (pkgs: {
+        default = {
+          type = "app";
+          program = nixpkgs.lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+          meta.description = "Turn a documentation site into a validated EPUB";
+        };
+      });
+
+      checks = forAllSystems (pkgs: {
+        default = pkgs.callPackage ./nix/package.nix {
+          hegelSource = hegel-cpp.sourceInfo.outPath;
+          libhegel = hegel-cpp.packages.${pkgs.stdenv.hostPlatform.system}.libhegel;
+        };
+      });
+
+      devShells = forAllSystems (
+        pkgs:
+        let
+          tested = self.checks.${pkgs.stdenv.hostPlatform.system}.default;
+        in
+        {
+          default = pkgs.mkShell {
+            inputsFrom = [ tested ];
+            packages = tested.passthru.runtimeTools ++ [ pkgs.clang-tools ];
+            inherit (tested) HEGEL_CPP_SOURCE HEGEL_LIBHEGEL_LIBRARY FONTCONFIG_FILE;
+          };
+        }
+      );
+    };
 }
