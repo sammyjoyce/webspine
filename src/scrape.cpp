@@ -34,6 +34,8 @@ constexpr std::string_view extract_js = R"JS(
     if (panel) {
       panel.hidden = false;
       panel.removeAttribute('aria-hidden');
+      // Frameworks also hide inactive panels with a class, which the display:none sweep below would delete.
+      panel.style.setProperty('display', 'block', 'important');
       const label = document.createElement('h3');
       label.textContent = tab.textContent.trim();
       panel.prepend(label);
