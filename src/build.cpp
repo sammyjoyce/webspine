@@ -111,6 +111,7 @@ std::string chapter_xhtml(const PageRecord& page, const std::string& content, co
     auto lang = escape_html(language);
     auto title = escape_html(page.title);
     auto url = escape_html(page.url);
+    // clang-format off
     return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE html>\n"
            "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"" + lang + "\" lang=\"" + lang + "\">\n"
            "<head>\n  <meta charset=\"utf-8\"/>\n"
@@ -120,6 +121,7 @@ std::string chapter_xhtml(const PageRecord& page, const std::string& content, co
            "<body>\n  <main>\n    <h1>" + title + "</h1>\n"
            "    <p class=\"source\">Source: <a href=\"" + url + "\">" + url + "</a></p>\n    " + content +
            "\n  </main>\n</body>\n</html>\n";
+    // clang-format on
 }
 
 std::map<std::string, std::string> normalize_assets(const Workspace& workspace, const fs::path& images_dir) {
@@ -240,6 +242,7 @@ BuiltBook write_package(const Workspace& workspace, const fs::path& requested_ou
 
     auto lang = escape_html(site.language);
     auto title = escape_html(site.title);
+    // clang-format off
     auto html_open = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE html>\n"
                      "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\" xml:lang=\"" +
                      lang + "\" lang=\"" + lang + "\">\n";
@@ -321,6 +324,7 @@ BuiltBook write_package(const Workspace& workspace, const fs::path& requested_ou
                    "links, reflowable text, and alternative text for images.</meta>\n"
                    "</metadata>\n<manifest>" + manifest + "</manifest>\n<spine toc=\"ncx\">" + spine +
                    "</spine>\n</package>\n");
+    // clang-format on
 
     auto output = fs::weakly_canonical(fs::absolute(requested_output));
     fs::create_directories(output.parent_path());
