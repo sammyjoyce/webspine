@@ -22,13 +22,14 @@
   hegelSource ? null,
   libhegel ? null,
   doCheck ? hegelSource != null && libhegel != null,
+  buildE2eTests ? true,
 }:
 
 let
   fontsConf = makeFontsConf { fontDirectories = [ dejavu_fonts ]; };
-  # nixpkgs builds chromium only for Linux. On macOS use the Chrome for Testing
-  # bundle that nixpkgs packages for Playwright, and point WEBSPINE_CHROMIUM at it.
-  darwinChromium = "${playwright-driver.components.chromium}/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing";
+  # The full Chrome app never completes CDP Page.navigate in headless mode on
+  # macOS. Playwright's dedicated headless shell does not enter that UI path.
+  darwinChromium = "${playwright-driver.components."chromium-headless-shell"}/chrome-headless-shell-mac-arm64/chrome-headless-shell";
   runtimeTools = [ epubcheck ] ++ lib.optional stdenv.hostPlatform.isLinux chromium;
   runtimeEnv = {
     FONTCONFIG_FILE = fontsConf;
@@ -65,7 +66,8 @@ stdenv.mkDerivation {
   ]
   ++ lib.optional doCheck gtest;
 
-  cmakeFlags = [ (lib.cmakeBool "WEBSPINE_BUILD_TESTS" doCheck) ];
+  cmakeFlags = [ (lib.cmakeBool "WEBSPINE_BUILD_TESTS" doCheck) ]
+  ++ lib.optional doCheck (lib.cmakeBool "WEBSPINE_BUILD_E2E_TESTS" buildE2eTests);
 
   inherit doCheck;
   nativeCheckInputs = runtimeTools;

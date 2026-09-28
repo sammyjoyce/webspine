@@ -39,6 +39,7 @@ target_link_libraries(webspine PRIVATE webspine_lib CLI11::CLI11)
 install(TARGETS webspine)
 
 option(WEBSPINE_BUILD_TESTS "Build the test suite" ON)
+option(WEBSPINE_BUILD_E2E_TESTS "Build the Chromium end-to-end tests" ON)
 if(WEBSPINE_BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)

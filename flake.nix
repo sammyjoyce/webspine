@@ -46,7 +46,14 @@
       checks = forAllSystems (pkgs: {
         default = pkgs.callPackage ./nix/package.nix {
           hegelSource = hegel-cpp.sourceInfo.outPath;
-          libhegel = hegel-cpp.packages.${pkgs.stdenv.hostPlatform.system}.libhegel;
+          # Darwin's strict Nix sandbox blocks loopback sockets and the macOS
+          # services Chromium needs. CI runs e2e outside the build sandbox.
+          buildE2eTests = !pkgs.stdenv.hostPlatform.isDarwin;
+          # hegel-cpp builds libhegel with stdenvNoCC, whose fixDarwinDylibNames hook
+          # needs install_name_tool from cctools but gets no toolchain on PATH.
+          libhegel = hegel-cpp.packages.${pkgs.stdenv.hostPlatform.system}.libhegel.overrideAttrs (old: {
+            nativeBuildInputs = old.nativeBuildInputs ++ nixpkgs.lib.optional pkgs.stdenv.hostPlatform.isDarwin pkgs.cctools;
+          });
         };
         format =
           pkgs.runCommand "webspine-format-check"
