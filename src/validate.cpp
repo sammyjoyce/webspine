@@ -167,10 +167,32 @@ std::vector<Finding> epubcheck(const fs::path& epub, const fs::path& checks) {
 constexpr std::string_view overflow_js = R"JS((() => ({
   documentWidth: document.documentElement.scrollWidth,
   viewportWidth: document.documentElement.clientWidth,
-  offenders: [...document.querySelectorAll('pre,table,img,svg')]
-    .filter((node) => node.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
-    .slice(0, 10)
-    .map((node) => node.tagName.toLowerCase())
+  // Text can overflow a block's fixed-width box, so measure words and replaced elements, not element boxes.
+  // Whitespace is skipped: pre-wrap spaces hang past the line end without making the page scroll.
+  offenders: (() => {
+    const limit = document.documentElement.clientWidth + 1;
+    const found = [];
+    const walker = document.createTreeWalker(document.documentElement, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    for (let text = walker.nextNode(); text && found.length < 10; text = walker.nextNode()) {
+      range.selectNodeContents(text);
+      if (range.getBoundingClientRect().right <= limit) continue;
+      for (const word of text.data.matchAll(/\S+/g)) {
+        range.setStart(text, word.index);
+        range.setEnd(text, word.index + word[0].length);
+        if (range.getBoundingClientRect().right > limit) {
+          found.push({tag: text.parentElement.tagName.toLowerCase(), text: word[0].slice(0, 80)});
+          break;
+        }
+      }
+    }
+    for (const node of document.querySelectorAll('img,svg,table,pre')) {
+      if (found.length < 10 && node.getBoundingClientRect().right > limit) {
+        found.push({tag: node.tagName.toLowerCase(), text: ''});
+      }
+    }
+    return found;
+  })()
 }))())JS";
 
 std::vector<Finding> reflow(const fs::path& extracted, const fs::path& checks) {

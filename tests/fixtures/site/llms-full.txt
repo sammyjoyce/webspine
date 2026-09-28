@@ -9,3 +9,11 @@ lines inside code fences are never counted toward text coverage at all
 ```
 
 A second `install` anchor makes the builder deduplicate IDs. Jump up.
+
+See the [source tree](https://github.com/example/fixture/tree/2440b06/apps/docs/content/guides/getting-started) for a `fixture_sdk.retry_policy` example with defaults.
+
+The accordion title above wraps a paragraph <strong>inside the heading</strong>, which XHTML does not allow.
+
+The client method returns a `Promise<SystemOneResult>` that resolves once the response is parsed.
+
+1. Every heading on this page carries a permalink icon that renders as a block inside the heading's markup.
