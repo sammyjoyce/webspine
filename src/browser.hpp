@@ -12,7 +12,7 @@ namespace webspine {
 // Headless Chromium driven through the DevTools protocol over
 // --remote-debugging-pipe: NUL-delimited JSON on the child's fds 3 and 4.
 class Browser {
-  public:
+public:
     Browser();
     ~Browser();
     Browser(const Browser&) = delete;
@@ -24,7 +24,7 @@ class Browser {
     json evaluate(std::string_view expression);
     void sleep_ms(int milliseconds);
 
-  private:
+private:
     json call(const std::string& method, json params = json::object(), bool in_session = true);
     json read_message(int timeout_ms);
     void wait_for_lifecycle(const std::string& name, const std::string& loader_id, int timeout_ms);

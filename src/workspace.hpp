@@ -14,7 +14,7 @@ std::string read_file(const fs::path& path);
 void write_file(const fs::path& path, std::string_view data);
 
 class Workspace {
-  public:
+public:
     explicit Workspace(const fs::path& root);
 
     fs::path root, pages, assets, build, dist, checks;

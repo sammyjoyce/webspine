@@ -10,8 +10,8 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <vips/vips8>
 #include <zip.h>
+#include <vips/vips8>
 
 #include <atomic>
 #include <cstdio>
@@ -23,7 +23,7 @@ using namespace webspine;
 namespace {
 
 class StaticServer {
-  public:
+public:
     explicit StaticServer(fs::path root) : root_(std::move(root)) {
         socket_ = ::socket(AF_INET, SOCK_STREAM, 0);
         sockaddr_in address{};
@@ -47,7 +47,7 @@ class StaticServer {
 
     int port() const { return port_; }
 
-  private:
+private:
     static std::string percent_decode(const std::string& value) {
         std::string out;
         for (size_t i = 0; i < value.size(); ++i) {
@@ -84,8 +84,9 @@ class StaticServer {
         std::string target = request.substr(4, request.find(' ', 4) - 4);
         target = percent_decode(target.substr(0, target.find_first_of("?#")));
         if (target == "/moved") {
-            std::string response = "HTTP/1.1 301 Moved Permanently\r\nLocation: /guide.html\r\nContent-Type: text/html\r\n"
-                                   "Content-Length: 0\r\nConnection: close\r\n\r\n";
+            std::string response =
+                "HTTP/1.1 301 Moved Permanently\r\nLocation: /guide.html\r\nContent-Type: text/html\r\n"
+                "Content-Length: 0\r\nConnection: close\r\n\r\n";
             send(client, response.data(), response.size(), MSG_NOSIGNAL);
             close(client);
             return;
@@ -107,7 +108,8 @@ class StaticServer {
             body = "missing";
         }
         std::string response = "HTTP/1.1 " + status + "\r\nContent-Type: " + type +
-                               "\r\nContent-Length: " + std::to_string(body.size()) + "\r\nConnection: close\r\n\r\n" + body;
+                               "\r\nContent-Length: " + std::to_string(body.size()) + "\r\nConnection: close\r\n\r\n" +
+                               body;
         send(client, response.data(), response.size(), MSG_NOSIGNAL);
         close(client);
     }
@@ -148,7 +150,7 @@ uint16_t first_local_extra_length(const std::string& archive) {
 }
 
 class Book {
-  public:
+public:
     explicit Book(const fs::path& epub) : bytes(read_file(epub)) {
         int error = 0;
         zip_t* archive = zip_open(epub.c_str(), ZIP_RDONLY, &error);
@@ -197,7 +199,8 @@ class Book {
 
 // XPath over a package or content document with the OPF, XHTML, DC and EPUB namespaces bound.
 std::vector<std::string> xpath(const std::string& document, const std::string& expression) {
-    xmlDocPtr doc = xmlReadMemory(document.data(), static_cast<int>(document.size()), nullptr, nullptr, XML_PARSE_NONET);
+    xmlDocPtr doc =
+        xmlReadMemory(document.data(), static_cast<int>(document.size()), nullptr, nullptr, XML_PARSE_NONET);
     if (!doc) throw std::runtime_error("document is not well-formed XML");
     xmlXPathContextPtr context = xmlXPathNewContext(doc);
     xmlXPathRegisterNs(context, BAD_CAST "opf", BAD_CAST "http://www.idpf.org/2007/opf");
@@ -221,7 +224,7 @@ std::vector<std::string> xpath(const std::string& document, const std::string& e
 
 // Scrapes tests/fixtures/site once through the CLI and shares the result across tests.
 class Fixture : public ::testing::Test {
-  protected:
+protected:
     static void SetUpTestSuite() {
         char temp_template[] = "/tmp/webspine-e2e-XXXXXX";
         tmp = mkdtemp(temp_template);
@@ -236,7 +239,8 @@ class Fixture : public ::testing::Test {
         origin = "http://127.0.0.1:" + std::to_string(server.port());
         std::string sitemap = "<?xml version=\"1.0\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">";
         sitemap += "<url><loc>" + origin + "/moved</loc></url>";
-        for (auto path : {"/", "/guide.html", "/reference/api%20notes.html", "/reference/i18n.html", "/reference/formats.html", "/reference/latin1.html"}) {
+        for (auto path : {"/", "/guide.html", "/reference/api%20notes.html", "/reference/i18n.html",
+                          "/reference/formats.html", "/reference/latin1.html"}) {
             sitemap += "<url><loc>" + origin + path + "</loc></url>";
         }
         write_file(site / "sitemap.xml", sitemap + "</urlset>");
@@ -289,7 +293,8 @@ TEST_F(Fixture, PackageMetadataMeetsMinimum) {
     EXPECT_EQ(xpath(opf(), "/opf:package/@version"), (std::vector<std::string>{"3.0"}));
     auto identifier = xpath(opf(), "//dc:identifier[@id=/opf:package/@unique-identifier]");
     ASSERT_EQ(identifier.size(), 1u);
-    EXPECT_TRUE(std::regex_match(identifier[0], std::regex("urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")))
+    EXPECT_TRUE(std::regex_match(
+        identifier[0], std::regex("urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")))
         << identifier[0];
     EXPECT_EQ(xpath(opf(), "//dc:title"), (std::vector<std::string>{"Fixture Docs"}));
     EXPECT_EQ(xpath(opf(), "//dc:language"), (std::vector<std::string>{"en"}));
@@ -335,7 +340,8 @@ TEST_F(Fixture, NavigationDocumentIsWellFormed) {
     EXPECT_EQ(xpath(nav, "//h:nav[@epub:type='toc']").size(), 1u);
     EXPECT_EQ(xpath(nav, "//h:nav//h:a[normalize-space(.)='']").size(), 0u);
     EXPECT_EQ(xpath(nav, "//h:nav[@epub:type='toc']//h:a"),
-              (std::vector<std::string>{"Fixture Docs", "Guide", "API notes", "国際化 & \"Quotes\" <tags>", "Formats et caractères", "Page Latin-1"}));
+              (std::vector<std::string>{"Fixture Docs", "Guide", "API notes", "国際化 & \"Quotes\" <tags>",
+                                        "Formats et caractères", "Page Latin-1"}));
 }
 
 // EPUB 3.4 section 4.2.3: file names avoid reserved characters and SPACE, and stay under 255 bytes.
@@ -355,7 +361,9 @@ TEST_F(Fixture, CrossDocumentLinksResolveToIds) {
     auto guide_name = book->chapter("guide.html");
     const auto& intro = book->read(intro_name);
     auto hrefs = xpath(intro, "//h:a/@href");
-    auto contains = [&](const std::string& value) { return std::find(hrefs.begin(), hrefs.end(), value) != hrefs.end(); };
+    auto contains = [&](const std::string& value) {
+        return std::find(hrefs.begin(), hrefs.end(), value) != hrefs.end();
+    };
     EXPECT_TRUE(contains(guide_name.substr(10) + "#install")) << intro;
     EXPECT_TRUE(contains(api_name.substr(10) + "#Return-Values")) << intro;
     EXPECT_EQ(xpath(book->read(api_name), "//h:*[@id='Return-Values']").size(), 1u);
@@ -379,7 +387,10 @@ TEST_F(Fixture, ContentIsSanitized) {
     EXPECT_EQ(xpath(guide, "//h:a[.='Jump up']/@href"), (std::vector<std::string>{"#install"}));
     for (const auto& name : book->names("EPUB/text/")) {
         const auto& chapter = book->read(name);
-        EXPECT_EQ(xpath(chapter, "//h:script | //@*[starts-with(name(), 'on')] | //h:a[starts-with(@href, 'javascript:')]").size(), 0u)
+        EXPECT_EQ(
+            xpath(chapter, "//h:script | //@*[starts-with(name(), 'on')] | //h:a[starts-with(@href, 'javascript:')]")
+                .size(),
+            0u)
             << name;
         EXPECT_EQ(chapter.find("<!--"), std::string::npos) << name;
     }
@@ -416,7 +427,8 @@ TEST_F(Fixture, StructureIsAccessible) {
         EXPECT_EQ(xpath(chapter, "//h:img[not(@alt) or @alt='']").size(), 0u) << name;
     }
     const auto& guide = book->read(book->chapter("guide.html"));
-    EXPECT_EQ(xpath(guide, "//h:th[@scope='col']"), (std::vector<std::string>{"Name", "Score", "Confidence", "Level", "Meaning"}));
+    EXPECT_EQ(xpath(guide, "//h:th[@scope='col']"),
+              (std::vector<std::string>{"Name", "Score", "Confidence", "Level", "Meaning"}));
     EXPECT_EQ(count(guide, ">Guide</h"), 1u) << guide;
 }
 
@@ -447,11 +459,14 @@ void pack(const fs::path& source, const fs::path& epub, Packing packing) {
         if (entry.is_regular_file() && entry.path().filename() != "mimetype") files.push_back(entry.path());
     }
     std::sort(files.begin(), files.end());
-    if (packing.mimetype_first) files.insert(files.begin(), source / "mimetype");
-    else files.push_back(source / "mimetype");
+    if (packing.mimetype_first)
+        files.insert(files.begin(), source / "mimetype");
+    else
+        files.push_back(source / "mimetype");
     for (const auto& path : files) {
         auto name = fs::relative(path, source).generic_string();
-        auto index = zip_file_add(archive, name.c_str(), zip_source_file(archive, path.c_str(), 0, ZIP_LENGTH_TO_END), 0);
+        auto index =
+            zip_file_add(archive, name.c_str(), zip_source_file(archive, path.c_str(), 0, ZIP_LENGTH_TO_END), 0);
         bool store = name == "mimetype" && packing.mimetype_stored;
         zip_set_file_compression(archive, static_cast<zip_uint64_t>(index), store ? ZIP_CM_STORE : ZIP_CM_DEFLATE, 9);
     }
@@ -487,8 +502,8 @@ std::pair<int, std::string> validate_mutated(const Mutation* mutation) {
     Packing packing;
     if (mutation) mutation->apply(tree, packing);
     pack(tree, tmp / "book.epub", packing);
-    auto result = run_command(std::string(WEBSPINE_BINARY) + " validate " + (tmp / "book.epub").string() +
-                              " --no-reflow --json");
+    auto result =
+        run_command(std::string(WEBSPINE_BINARY) + " validate " + (tmp / "book.epub").string() + " --no-reflow --json");
     fs::remove_all(tmp);
     return result;
 }
@@ -512,7 +527,8 @@ INSTANTIATE_TEST_SUITE_P(
     Epub34, ValidatorMutation,
     ::testing::Values(
         Mutation{"MimetypeNotFirst", "EPUB_MIMETYPE_ORDER", [](auto&, Packing& p) { p.mimetype_first = false; }},
-        Mutation{"MimetypeCompressed", "EPUB_MIMETYPE_COMPRESSED", [](auto&, Packing& p) { p.mimetype_stored = false; }},
+        Mutation{"MimetypeCompressed", "EPUB_MIMETYPE_COMPRESSED",
+                 [](auto&, Packing& p) { p.mimetype_stored = false; }},
         Mutation{"MalformedXhtml", "XHTML_INVALID",
                  [](const fs::path& t, Packing&) { replace_in(t / "EPUB/text/two.xhtml", "</p>", "</div>"); }},
         Mutation{"MissingLanguage", "A11Y_LANGUAGE",
@@ -529,7 +545,8 @@ INSTANTIATE_TEST_SUITE_P(
                  }},
         Mutation{"HeadingJump", "A11Y_HEADING_ORDER",
                  [](const fs::path& t, Packing&) {
-                     replace_in(t / "EPUB/text/two.xhtml", "<h2 id=\"usage\">Usage</h2>", "<h4 id=\"usage\">Usage</h4>");
+                     replace_in(t / "EPUB/text/two.xhtml", "<h2 id=\"usage\">Usage</h2>",
+                                "<h4 id=\"usage\">Usage</h4>");
                  }},
         Mutation{"BrokenInternalLink", "LINK_BROKEN_INTERNAL",
                  [](const fs::path& t, Packing&) { replace_in(t / "EPUB/text/two.xhtml", "one.xhtml", "zero.xhtml"); }},
@@ -541,7 +558,8 @@ INSTANTIATE_TEST_SUITE_P(
                  }},
         Mutation{"MissingModifiedDate", "EPUBCHECK_FAILED",
                  [](const fs::path& t, Packing&) {
-                     replace_in(t / "EPUB/package.opf", "<meta property=\"dcterms:modified\">2026-01-01T00:00:00Z</meta>", "");
+                     replace_in(t / "EPUB/package.opf",
+                                "<meta property=\"dcterms:modified\">2026-01-01T00:00:00Z</meta>", "");
                  }},
         Mutation{"DataUrlHyperlink", "EPUBCHECK_FAILED",
                  [](const fs::path& t, Packing&) {

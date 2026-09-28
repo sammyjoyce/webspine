@@ -106,16 +106,17 @@ std::vector<Finding> content_findings(const fs::path& extracted) {
         }
         for (auto table : html::elements(document, by_name("table"))) {
             if (!html::first_element(table, by_name("th"))) {
-                findings.push_back(error_finding("A11Y_TABLE_HEADER", "A table has no header cells.", "validate", file));
+                findings.push_back(
+                    error_finding("A11Y_TABLE_HEADER", "A table has no header cells.", "validate", file));
             }
         }
         int previous = 0;
         for (auto heading : html::elements(document, html::is_heading)) {
             int level = html::heading_level(heading);
             if (previous && level > previous + 1) {
-                findings.push_back(error_finding(
-                    "A11Y_HEADING_ORDER", std::format("Heading level jumps from h{} to h{}.", previous, level),
-                    "validate", file));
+                findings.push_back(error_finding("A11Y_HEADING_ORDER",
+                                                 std::format("Heading level jumps from h{} to h{}.", previous, level),
+                                                 "validate", file));
             }
             previous = level;
         }
@@ -125,8 +126,8 @@ std::vector<Finding> content_findings(const fs::path& extracted) {
             auto target = url_defrag(*href).first;
             auto resolved = fs::weakly_canonical(path.parent_path() / target);
             if (resolved.extension() == ".xhtml" && !known.count(resolved)) {
-                findings.push_back(error_finding("LINK_BROKEN_INTERNAL", "Internal link target does not exist: " + *href,
-                                                 "validate", file));
+                findings.push_back(error_finding("LINK_BROKEN_INTERNAL",
+                                                 "Internal link target does not exist: " + *href, "validate", file));
             }
         }
         xmlFreeDoc(doc);
@@ -275,8 +276,8 @@ std::vector<Finding> coverage(const Workspace& workspace) {
 
 StageResult validate(const fs::path& epub_path, const std::optional<fs::path>& workspace_path, bool run_reflow) {
     auto epub = fs::weakly_canonical(fs::absolute(epub_path));
-    auto checks = workspace_path ? Workspace(*workspace_path).checks
-                                 : epub.parent_path() / (epub.stem().string() + "-checks");
+    auto checks =
+        workspace_path ? Workspace(*workspace_path).checks : epub.parent_path() / (epub.stem().string() + "-checks");
     fs::create_directories(checks);
     auto extracted = checks / "extracted";
     auto findings = extract(epub, extracted);
@@ -285,11 +286,12 @@ StageResult validate(const fs::path& epub_path, const std::optional<fs::path>& w
     append(epubcheck(epub, checks));
     if (workspace_path) append(coverage(Workspace(*workspace_path)));
     if (run_reflow) append(reflow(extracted, checks));
-    int errors = static_cast<int>(std::count_if(findings.begin(), findings.end(),
-                                                [](const auto& f) { return f.severity == "error"; }));
-    int warnings = static_cast<int>(std::count_if(findings.begin(), findings.end(),
-                                                  [](const auto& f) { return f.severity == "warning"; }));
-    StageResult result{"validate", errors ? "failed" : "passed", {{"errors", errors}, {"warnings", warnings}}, findings};
+    int errors = static_cast<int>(
+        std::count_if(findings.begin(), findings.end(), [](const auto& f) { return f.severity == "error"; }));
+    int warnings = static_cast<int>(
+        std::count_if(findings.begin(), findings.end(), [](const auto& f) { return f.severity == "warning"; }));
+    StageResult result{
+        "validate", errors ? "failed" : "passed", {{"errors", errors}, {"warnings", warnings}}, findings};
     write_file(checks / "validation.json", json(result).dump(2) + "\n");
     return result;
 }

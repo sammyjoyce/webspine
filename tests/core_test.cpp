@@ -45,11 +45,17 @@ TEST(Core, HashesMatchKnownVectors) {
 }
 
 TEST(Core, CleanFragmentSanitizesAndRewritesLinks) {
-    PageRecord page{"https://docs.example/guide", "/guide", "Guide", "en",
+    PageRecord page{"https://docs.example/guide",
+                    "/guide",
+                    "Guide",
+                    "en",
                     "<h1>Guide</h1><h4 id='a b' onclick='x()'>Step</h4><custom><p>Kept</p></custom>"
                     "<a href='/intro#Set Up'>Intro</a><a href='#a b'>Self</a><script>bad()</script>"
                     "<table><tr><td>Level</td></tr><tr><td>High</td></tr></table><img src='assets/x.webp'>",
-                    "", {}, {}, {}};
+                    "",
+                    {},
+                    {},
+                    {}};
     auto result = clean_fragment(page, {{"https://docs.example/intro", "intro-1.xhtml"}}, {{"x.webp", "x.png"}});
     EXPECT_EQ(result,
               "<h2 id=\"a-b\">Step</h2><p>Kept</p><a href=\"intro-1.xhtml#Set-Up\">Intro</a>"
@@ -59,8 +65,15 @@ TEST(Core, CleanFragmentSanitizesAndRewritesLinks) {
 }
 
 TEST(Core, CleanFragmentTurnsAlignedPreIntoTable) {
-    PageRecord page{"https://docs.example/t", "/t", "T", "en",
-                    "<pre>Name  Score  Confidence\nAlpha  0.91  High\nBeta  0.72  Medium</pre>", "", {}, {}, {}};
+    PageRecord page{"https://docs.example/t",
+                    "/t",
+                    "T",
+                    "en",
+                    "<pre>Name  Score  Confidence\nAlpha  0.91  High\nBeta  0.72  Medium</pre>",
+                    "",
+                    {},
+                    {},
+                    {}};
     EXPECT_EQ(clean_fragment(page, {}, {}),
               "<table><tbody>"
               "<tr><th scope=\"col\">Name</th><th scope=\"col\">Score</th><th scope=\"col\">Confidence</th></tr>"
@@ -90,20 +103,22 @@ TEST(Core, InlineImageStaysInline) {
 }
 
 TEST(Core, PreservesMeaningfulMarkup) {
-    EXPECT_EQ(clean("<ol start='4' reversed><li value='9'>x</li></ol>"
-                    "<p lang='ja'><ruby>漢字<rp>(</rp><rt>かんじ</rt><rp>)</rp></ruby></p>"
-                    "<p dir='rtl'><bdi>إيان</bdi> <time datetime='2026-09-01'>then</time> a<wbr>b</p>"
-                    "<blockquote cite='https://q.example/'>q</blockquote><img src='i.png' alt='x' width='16' height='16'>"),
-              "<ol start=\"4\" reversed=\"\"><li value=\"9\">x</li></ol>"
-              "<p lang=\"ja\"><ruby>漢字<rp>(</rp><rt>かんじ</rt><rp>)</rp></ruby></p>"
-              "<p dir=\"rtl\"><bdi>إيان</bdi> <time datetime=\"2026-09-01\">then</time> a<wbr/>b</p>"
-              "<blockquote cite=\"https://q.example/\">q</blockquote>"
-              "<figure><img src=\"i.png\" alt=\"x\" width=\"16\" height=\"16\"/></figure>");
+    EXPECT_EQ(
+        clean("<ol start='4' reversed><li value='9'>x</li></ol>"
+              "<p lang='ja'><ruby>漢字<rp>(</rp><rt>かんじ</rt><rp>)</rp></ruby></p>"
+              "<p dir='rtl'><bdi>إيان</bdi> <time datetime='2026-09-01'>then</time> a<wbr>b</p>"
+              "<blockquote cite='https://q.example/'>q</blockquote><img src='i.png' alt='x' width='16' height='16'>"),
+        "<ol start=\"4\" reversed=\"\"><li value=\"9\">x</li></ol>"
+        "<p lang=\"ja\"><ruby>漢字<rp>(</rp><rt>かんじ</rt><rp>)</rp></ruby></p>"
+        "<p dir=\"rtl\"><bdi>إيان</bdi> <time datetime=\"2026-09-01\">then</time> a<wbr/>b</p>"
+        "<blockquote cite=\"https://q.example/\">q</blockquote>"
+        "<figure><img src=\"i.png\" alt=\"x\" width=\"16\" height=\"16\"/></figure>");
 }
 
 TEST(Core, KeepsPresentationMathmlWithAltText) {
     EXPECT_EQ(clean("<p><math xmlns='http://www.w3.org/1998/Math/MathML'><msup><mi>e</mi><mn>2</mn></msup></math></p>"),
-              "<p><math xmlns=\"http://www.w3.org/1998/Math/MathML\" alttext=\"e2\"><msup><mi>e</mi><mn>2</mn></msup></math></p>");
+              "<p><math xmlns=\"http://www.w3.org/1998/Math/MathML\" "
+              "alttext=\"e2\"><msup><mi>e</mi><mn>2</mn></msup></math></p>");
 }
 
 TEST(Core, EmptyFragmentLinksPointAtNothingInvalid) {
@@ -112,18 +127,25 @@ TEST(Core, EmptyFragmentLinksPointAtNothingInvalid) {
 }
 
 TEST(Core, DanglingFragmentsArePruned) {
-    auto content = clean("<h2 id='here'>H</h2><a href='/b#there'>b</a> <a href='/b#gone'>c</a> "
-                         "<a href='#nope'>d</a> <a href='#here'>e</a> <a href='https://x.example/#k'>f</a>",
-                         {{"https://docs.example/b", "b.xhtml"}});
+    auto content = clean(
+        "<h2 id='here'>H</h2><a href='/b#there'>b</a> <a href='/b#gone'>c</a> "
+        "<a href='#nope'>d</a> <a href='#here'>e</a> <a href='https://x.example/#k'>f</a>",
+        {{"https://docs.example/b", "b.xhtml"}});
     EXPECT_EQ(prune_dangling_fragments(content, "a.xhtml", {{"a.xhtml", {"here"}}, {"b.xhtml", {"there"}}}),
               "<h2 id=\"here\">H</h2><a href=\"b.xhtml#there\">b</a> <a href=\"b.xhtml\">c</a> d "
               "<a href=\"#here\">e</a> <a href=\"https://x.example/#k\">f</a>");
 }
 
 TEST(Core, Base64MatchesRfc4648Vectors) {
-    for (auto [plain, encoded] : std::vector<std::pair<std::string, std::string>>{
-             {"", ""}, {"f", "Zg=="}, {"fo", "Zm8="}, {"foo", "Zm9v"}, {"foob", "Zm9vYg=="}, {"fooba", "Zm9vYmE="},
-             {"foobar", "Zm9vYmFy"}, {std::string("\xff\x00\xfe", 3), "/wD+"}}) {
+    for (auto [plain, encoded] :
+         std::vector<std::pair<std::string, std::string>>{{"", ""},
+                                                          {"f", "Zg=="},
+                                                          {"fo", "Zm8="},
+                                                          {"foo", "Zm9v"},
+                                                          {"foob", "Zm9vYg=="},
+                                                          {"fooba", "Zm9vYmE="},
+                                                          {"foobar", "Zm9vYmFy"},
+                                                          {std::string("\xff\x00\xfe", 3), "/wD+"}}) {
         EXPECT_EQ(base64_encode(plain), encoded);
         EXPECT_EQ(base64_decode(encoded), plain);
     }
@@ -140,6 +162,7 @@ TEST(Core, Utf8ValidationRejectsLatin1AndOverlongForms) {
 TEST(Core, CharsetDeclarationIsFoundInPrescanWindow) {
     EXPECT_TRUE(declares_charset("<html><head><META CHARSET=\"iso-8859-1\">"));
     EXPECT_TRUE(declares_charset("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">"));
-    EXPECT_FALSE(declares_charset("<html><head><meta name=\"viewport\" content=\"width=device-width\"><title>x</title>"));
+    EXPECT_FALSE(
+        declares_charset("<html><head><meta name=\"viewport\" content=\"width=device-width\"><title>x</title>"));
     EXPECT_FALSE(declares_charset(std::string(1100, ' ') + "<meta charset=\"utf-8\">"));
 }

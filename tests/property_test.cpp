@@ -26,8 +26,7 @@ std::string sha256_oracle(const std::string& data) {
 }
 
 std::string percent_encode(const std::string& value) {
-    static const std::string unreserved =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()";
+    static const std::string unreserved = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()";
     std::string out;
     for (unsigned char c : value) {
         if (unreserved.find(static_cast<char>(c)) != std::string::npos) {
@@ -54,98 +53,120 @@ bool matches(const std::string& value, const char* pattern) { return std::regex_
 }  // namespace
 
 TEST(Properties, XmlIdIsNonemptyAndXmlSafe) {
-    hegel::test([](hegel::TestCase& tc) {
-        auto input = tc.draw("input", text());
-        EXPECT_TRUE(matches(xml_id(input), "[A-Za-z_][A-Za-z0-9_.-]*")) << xml_id(input);
-    }, settings);
+    hegel::test(
+        [](hegel::TestCase& tc) {
+            auto input = tc.draw("input", text());
+            EXPECT_TRUE(matches(xml_id(input), "[A-Za-z_][A-Za-z0-9_.-]*")) << xml_id(input);
+        },
+        settings);
 }
 
 TEST(Properties, XmlIdIsIdempotent) {
-    hegel::test([](hegel::TestCase& tc) {
-        auto once = xml_id(tc.draw("input", text()));
-        EXPECT_EQ(xml_id(once), once);
-    }, settings);
+    hegel::test(
+        [](hegel::TestCase& tc) {
+            auto once = xml_id(tc.draw("input", text()));
+            EXPECT_EQ(xml_id(once), once);
+        },
+        settings);
 }
 
 TEST(Properties, RouteNameIsPortableFilenameComponent) {
-    hegel::test([](hegel::TestCase& tc) {
-        auto result = route_name(tc.draw("route", text()));
-        EXPECT_TRUE(matches(result, "[A-Za-z0-9._-]+")) << result;
-        EXPECT_NE(result, ".");
-        EXPECT_NE(result, "..");
-    }, settings);
+    hegel::test(
+        [](hegel::TestCase& tc) {
+            auto result = route_name(tc.draw("route", text()));
+            EXPECT_TRUE(matches(result, "[A-Za-z0-9._-]+")) << result;
+            EXPECT_NE(result, ".");
+            EXPECT_NE(result, "..");
+        },
+        settings);
 }
 
 TEST(Properties, PageKeyIsSha256Prefix) {
-    hegel::test([](hegel::TestCase& tc) {
-        auto url = tc.draw("url", text());
-        EXPECT_EQ(page_key(url), sha256_oracle(url).substr(0, 16));
-    }, settings);
+    hegel::test(
+        [](hegel::TestCase& tc) {
+            auto url = tc.draw("url", text());
+            EXPECT_EQ(page_key(url), sha256_oracle(url).substr(0, 16));
+        },
+        settings);
 }
 
 TEST(Properties, CanonicalUrlDropsQueryFragmentAndExtraSlashes) {
-    hegel::test([](hegel::TestCase& tc) {
-        auto domain = tc.draw("host", host());
-        auto first = tc.draw("first", path_segment());
-        auto second = tc.draw("second", path_segment());
-        auto query = percent_encode(tc.draw("query", text()));
-        auto fragment = percent_encode(tc.draw("fragment", text()));
-        auto input = "https://" + domain + "//" + first + "///" + second + "//?q=" + query + "#" + fragment;
-        EXPECT_EQ(canonical_url(input), "https://" + domain + "/" + first + "/" + second);
-    }, settings);
+    hegel::test(
+        [](hegel::TestCase& tc) {
+            auto domain = tc.draw("host", host());
+            auto first = tc.draw("first", path_segment());
+            auto second = tc.draw("second", path_segment());
+            auto query = percent_encode(tc.draw("query", text()));
+            auto fragment = percent_encode(tc.draw("fragment", text()));
+            auto input = "https://" + domain + "//" + first + "///" + second + "//?q=" + query + "#" + fragment;
+            EXPECT_EQ(canonical_url(input), "https://" + domain + "/" + first + "/" + second);
+        },
+        settings);
 }
 
 TEST(Properties, InScopeAcceptsBaseDescendants) {
-    hegel::test([](hegel::TestCase& tc) {
-        auto base = "https://" + tc.draw("host", host()) + "/" + tc.draw("base", path_segment());
-        EXPECT_TRUE(in_scope(base + "/" + tc.draw("child", path_segment()), base));
-    }, settings);
+    hegel::test(
+        [](hegel::TestCase& tc) {
+            auto base = "https://" + tc.draw("host", host()) + "/" + tc.draw("base", path_segment());
+            EXPECT_TRUE(in_scope(base + "/" + tc.draw("child", path_segment()), base));
+        },
+        settings);
 }
 
 TEST(Properties, InScopeRejectsSharedPrefixSiblings) {
-    hegel::test([](hegel::TestCase& tc) {
-        auto base = "https://" + tc.draw("host", host()) + "/" + tc.draw("base", path_segment());
-        EXPECT_FALSE(in_scope(base + tc.draw("suffix", path_segment()), base));
-    }, settings);
+    hegel::test(
+        [](hegel::TestCase& tc) {
+            auto base = "https://" + tc.draw("host", host()) + "/" + tc.draw("base", path_segment());
+            EXPECT_FALSE(in_scope(base + tc.draw("suffix", path_segment()), base));
+        },
+        settings);
 }
 
 TEST(Properties, InScopeRejectsOtherHosts) {
-    hegel::test([](hegel::TestCase& tc) {
-        auto domain = tc.draw("host", host());
-        auto other = tc.draw("other", host());
-        tc.assume(domain != other);
-        auto path = tc.draw("path", path_segment());
-        EXPECT_FALSE(in_scope("https://" + other + "/" + path, "https://" + domain + "/" + path));
-    }, settings);
+    hegel::test(
+        [](hegel::TestCase& tc) {
+            auto domain = tc.draw("host", host());
+            auto other = tc.draw("other", host());
+            tc.assume(domain != other);
+            auto path = tc.draw("path", path_segment());
+            EXPECT_FALSE(in_scope("https://" + other + "/" + path, "https://" + domain + "/" + path));
+        },
+        settings);
 }
 
 TEST(Properties, ChapterNameIsPortableXhtmlFilenameWithUrlDigest) {
-    hegel::test([](hegel::TestCase& tc) {
-        auto route = tc.draw("route", text());
-        auto url = tc.draw("url", gs::urls());
-        auto result = chapter_name(route, url);
-        EXPECT_TRUE(matches(result, "[A-Za-z0-9._-]+\\.xhtml")) << result;
-        EXPECT_TRUE(result.ends_with("-" + sha256_oracle(url).substr(0, 8) + ".xhtml")) << result;
-    }, settings);
+    hegel::test(
+        [](hegel::TestCase& tc) {
+            auto route = tc.draw("route", text());
+            auto url = tc.draw("url", gs::urls());
+            auto result = chapter_name(route, url);
+            EXPECT_TRUE(matches(result, "[A-Za-z0-9._-]+\\.xhtml")) << result;
+            EXPECT_TRUE(result.ends_with("-" + sha256_oracle(url).substr(0, 8) + ".xhtml")) << result;
+        },
+        settings);
 }
 
 TEST(Properties, DefaultWorkspaceStaysUnderWebspineRoot) {
-    hegel::test([](hegel::TestCase& tc) {
-        auto domain = tc.draw("host", host());
-        auto first = tc.draw("first", path_segment());
-        auto second = tc.draw("second", path_segment());
-        EXPECT_EQ(default_workspace("https://" + domain + "/" + first + "/" + second).string(),
-                  ".webspine/" + domain + "-" + first + "-" + second);
-    }, settings);
+    hegel::test(
+        [](hegel::TestCase& tc) {
+            auto domain = tc.draw("host", host());
+            auto first = tc.draw("first", path_segment());
+            auto second = tc.draw("second", path_segment());
+            EXPECT_EQ(default_workspace("https://" + domain + "/" + first + "/" + second).string(),
+                      ".webspine/" + domain + "-" + first + "-" + second);
+        },
+        settings);
 }
 
 TEST(Properties, UrlJoinOfAbsolutePathKeepsSchemeAndHost) {
-    hegel::test([](hegel::TestCase& tc) {
-        auto domain = tc.draw("host", host());
-        auto base = "https://" + domain + "/" + tc.draw("base", path_segment()) + "/page";
-        auto segment = tc.draw("target", path_segment());
-        tc.assume(segment != "." && segment != "..");  // RFC 3986 section 5.2.4 removes dot segments.
-        auto target = "/" + segment;
-        EXPECT_EQ(url_join(base, target), "https://" + domain + target);
-    }, settings);
+    hegel::test(
+        [](hegel::TestCase& tc) {
+            auto domain = tc.draw("host", host());
+            auto base = "https://" + domain + "/" + tc.draw("base", path_segment()) + "/page";
+            auto segment = tc.draw("target", path_segment());
+            tc.assume(segment != "." && segment != "..");  // RFC 3986 section 5.2.4 removes dot segments.
+            auto target = "/" + segment;
+            EXPECT_EQ(url_join(base, target), "https://" + domain + target);
+        },
+        settings);
 }
