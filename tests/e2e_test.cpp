@@ -103,6 +103,7 @@ private:
             if (extension == ".xml") type = "application/xml";
             if (extension == ".txt") type = "text/plain; charset=utf-8";
             if (extension == ".webp") type = "image/webp";
+            if (extension == ".png") type = "image/png";
         } else {
             status = "404 Not Found";
             body = "missing";
@@ -235,6 +236,15 @@ protected:
             .new_from_image(std::vector<double>{0xd8, 0xe8, 0xf4})
             .cast(VIPS_FORMAT_UCHAR)
             .webpsave((site / "diagram.webp").c_str());
+        // A red logo and a green icon, so the cover test can tell which one the renderer used.
+        vips::VImage::black(200, 50)
+            .new_from_image(std::vector<double>{0xc0, 0x10, 0x10})
+            .cast(VIPS_FORMAT_UCHAR)
+            .pngsave((site / "logo.png").c_str());
+        vips::VImage::black(180, 180)
+            .new_from_image(std::vector<double>{0x10, 0xa0, 0x10})
+            .cast(VIPS_FORMAT_UCHAR)
+            .pngsave((site / "icon.png").c_str());
         StaticServer server(site);
         origin = "http://127.0.0.1:" + std::to_string(server.port());
         std::string sitemap = "<?xml version=\"1.0\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">";
@@ -296,11 +306,55 @@ TEST_F(Fixture, PackageMetadataMeetsMinimum) {
     EXPECT_TRUE(std::regex_match(
         identifier[0], std::regex("urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")))
         << identifier[0];
-    EXPECT_EQ(xpath(opf(), "//dc:title"), (std::vector<std::string>{"Fixture Docs"}));
+    EXPECT_EQ(xpath(opf(), "//dc:title"), (std::vector<std::string>{"Fixture Docs"}))
+        << "og:site_name names the book, not the <title> prefix or the entry page's h1";
     EXPECT_EQ(xpath(opf(), "//dc:language"), (std::vector<std::string>{"en"}));
     auto modified = xpath(opf(), "//opf:meta[@property='dcterms:modified' and not(@refines)]");
     ASSERT_EQ(modified.size(), 1u);
     EXPECT_TRUE(std::regex_match(modified[0], std::regex(R"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)"))) << modified[0];
+}
+
+// Publication metadata comes from the entry page's head: who publishes it, what it is, and when it was captured.
+TEST_F(Fixture, PackageMetadataDescribesTheSite) {
+    EXPECT_EQ(xpath(opf(), "//dc:publisher"), (std::vector<std::string>{"Fixture Docs"}));
+    EXPECT_EQ(xpath(opf(), "//dc:creator"), (std::vector<std::string>{"Fixture Team"}));
+    EXPECT_EQ(xpath(opf(), "//dc:description"),
+              (std::vector<std::string>{"Everything the fixture documents, from install to \"API notes\" & beyond."}));
+    auto date = xpath(opf(), "//dc:date");
+    ASSERT_EQ(date.size(), 1u);
+    EXPECT_TRUE(std::regex_match(date[0], std::regex(R"(\d{4}-\d{2}-\d{2})"))) << date[0];
+    EXPECT_EQ(xpath(opf(), "//dc:subject"), (std::vector<std::string>{"Documentation"}));
+    EXPECT_EQ(xpath(opf(), "//dc:contributor[@id='producer']"), (std::vector<std::string>{"webspine 0.1.0"}));
+    EXPECT_EQ(xpath(opf(), "//opf:meta[@refines='#producer' and @property='role']"), (std::vector<std::string>{"bkp"}));
+}
+
+// The cover is a portrait JPEG at the size stores recommend, carrying the site's logo and its dark theme colour.
+TEST_F(Fixture, CoverCarriesTheSiteBrand) {
+    const auto& jpeg = book->read("EPUB/images/cover.jpg");
+    auto cover = vips::VImage::new_from_buffer(jpeg.data(), jpeg.size(), "");
+    EXPECT_EQ(cover.width(), 1600);
+    EXPECT_EQ(cover.height(), 2560);
+    auto pixel = [&](int x, int y) {
+        auto values = cover.getpoint(x, y);
+        return std::vector<int>(values.begin(), values.end());
+    };
+    auto near = [](std::vector<int> actual, std::vector<int> expected) {
+        for (size_t i = 0; i < 3; ++i) {
+            if (std::abs(actual[i] - expected[i]) > 12) return false;
+        }
+        return true;
+    };
+    EXPECT_TRUE(near(pixel(800, 40), {0x0b, 0x5f, 0xff})) << "the accent band uses the dark theme-color, not #f0f0f0";
+    int logo_rows = 0;
+    for (int y = 300; y < 2230; y += 5) logo_rows += near(pixel(250, y), {0xc0, 0x10, 0x10});
+    EXPECT_GT(logo_rows, 0) << "the header logo is placed between the band and the footer";
+    int icon_rows = 0;
+    for (int y = 0; y < 2560; y += 5) icon_rows += near(pixel(250, y), {0x10, 0xa0, 0x10});
+    EXPECT_EQ(icon_rows, 0) << "the logo wins over the touch icon";
+    auto site = json::parse(read_file(workspace / "site.json"))["metadata"];
+    EXPECT_EQ(site["logo"], "logo.png");
+    EXPECT_EQ(site["icon"], "icon.png");
+    EXPECT_FALSE(book->has("EPUB/images/logo.png")) << "brand files stay out of the book's image manifest";
 }
 
 // EPUB 3.4 section 5.7: every container file except mimetype, META-INF and the package is in the

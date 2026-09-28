@@ -282,7 +282,14 @@ BuiltBook write_package(const Workspace& workspace, const fs::path& requested_ou
                "  <rootfiles><rootfile full-path=\"EPUB/package.opf\" "
                "media-type=\"application/oebps-package+xml\"/></rootfiles>\n</container>\n");
     write_file(epub_root / "styles" / "book.css", book_css);
-    render_cover(site.title, images_dir / "cover.jpg");
+    const auto& metadata = site.metadata;
+    auto brand_file = [&](const std::optional<std::string>& name) -> std::optional<fs::path> {
+        if (!name || !fs::exists(workspace.brand / *name)) return std::nullopt;
+        return workspace.brand / *name;
+    };
+    render_cover({site.title, metadata.description, parse_url(site.base_url).netloc, metadata.captured_on,
+                  metadata.theme_colors, brand_file(metadata.logo), brand_file(metadata.icon)},
+                 images_dir / "cover.jpg");
     auto asset_names = normalize_assets(workspace, images_dir);
 
     std::map<std::string, std::string> url_to_file;
@@ -348,6 +355,18 @@ BuiltBook write_package(const Workspace& workspace, const fs::path& requested_ou
                    "\">Start</a></li>\n</ol></nav></body>\n</html>\n");
 
     std::string identifier = "urn:uuid:" + uuid5_url(site.base_url);
+    // Publisher and creator are the documentation's owner as the site names itself, falling back to its host.
+    auto publisher = escape_html(metadata.name.empty() ? parse_url(site.base_url).netloc : metadata.name);
+    std::string optional_metadata = "  <dc:publisher>" + publisher + "</dc:publisher>\n";
+    optional_metadata += "  <dc:creator>" + (metadata.author.empty() ? publisher : escape_html(metadata.author)) +
+                         "</dc:creator>\n";
+    if (!metadata.description.empty()) {
+        optional_metadata += "  <dc:description>" + escape_html(metadata.description) + "</dc:description>\n";
+    }
+    if (!metadata.captured_on.empty()) {
+        optional_metadata += "  <dc:date>" + escape_html(metadata.captured_on) + "</dc:date>\n";
+    }
+    optional_metadata += "  <dc:subject>Documentation</dc:subject>\n";
     write_file(epub_root / "toc.ncx",
                "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
                "<ncx xmlns=\"http://www.daisy.org/z3986/2005/ncx/\" version=\"2005-1\" xml:lang=\"" + lang + "\">\n"
@@ -383,8 +402,10 @@ BuiltBook write_package(const Workspace& workspace, const fs::path& requested_ou
                    "  <dc:identifier id=\"book-id\">" + identifier + "</dc:identifier>\n"
                    "  <dc:title>" + title + "</dc:title>\n"
                    "  <dc:language>" + lang + "</dc:language>\n"
-                   "  <dc:source>" + escape_html(site.base_url) + "</dc:source>\n"
-                   "  <dc:publisher>webspine</dc:publisher>\n"
+                   "  <dc:source>" + escape_html(site.base_url) + "</dc:source>\n" +
+                   optional_metadata +
+                   "  <dc:contributor id=\"producer\">webspine " + std::string(version) + "</dc:contributor>\n"
+                   "  <meta refines=\"#producer\" property=\"role\" scheme=\"marc:relators\">bkp</meta>\n"
                    "  <meta property=\"dcterms:modified\">" + timestamp() + "</meta>\n"
                    "  <meta property=\"rendition:layout\">reflowable</meta>\n"
                    "  <meta property=\"schema:accessModeSufficient\">textual</meta>\n"
